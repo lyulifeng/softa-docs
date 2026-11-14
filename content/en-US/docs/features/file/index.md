@@ -81,13 +81,16 @@ The host is part of the SigV4 canonical request (`X-Amz-SignedHeaders=host`), so
 The keys in `FileInfo.url` are signed with this secret (see [File addresses and keys](#file-addresses-and-keys)):
 
 ```yml
-file:
-  open-key-secret: ${FILE_OPEN_KEY_SECRET:}   # REQUIRED; a random string of at least 32 bytes; the same on every instance
+security:
+  file-key:
+    secret: ...   # REQUIRED; a random string of at least 32 bytes; the same on every instance
 ```
 
+- Keep the real value out of committed configuration: on a server, set the environment variable `SECURITY_FILE_KEY_SECRET`. Spring binds it to `security.file-key.secret` by itself, so the YAML needs no mapping.
 - Startup fails when it is blank. Generate one with `openssl rand -base64 48`.
 - Every instance must use the same value, the old and new containers of a rolling deploy included; otherwise one rejects the keys another signed.
 - Changing it invalidates every key already handed out; a page refresh gets new ones.
+- Do not reuse the value of `security.encryption.password`. That password can never change once data is encrypted with it, while this secret has to stay changeable, so that every key handed out can be revoked at once. And the password is stretched before use, while an HMAC key is used as it is, so this one has to be a long random string.
 
 The application has to open `/file/open/**` in `permission.authenticated-bypass-patterns`: the permission interceptor cannot derive a model from that path, for the same reason as `/file/uploadFileTo*`. What this opens is the endpoint, not the data: the open endpoint checks the key itself. `/openapi/**` is public already and needs nothing.
 

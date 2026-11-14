@@ -86,13 +86,16 @@ host 参与 SigV4 签名（`X-Amz-SignedHeaders=host`），所以**签完再改�
 `FileInfo.url` 里的钥匙用这个密钥签名（见[文件地址与钥匙](#文件地址与钥匙)）：
 
 ```yml
-file:
-  open-key-secret: ${FILE_OPEN_KEY_SECRET:}   # 必填；至少 32 字节的随机串；所有实例相同
+security:
+  file-key:
+    secret: ...   # 必填；至少 32 字节的随机串；所有实例相同
 ```
 
+- 真实值不要写进提交的配置文件：服务器上设环境变量 `SECURITY_FILE_KEY_SECRET`，Spring 会自动把它对应到 `security.file-key.secret`，yml 里不用写映射。
 - 留空时启动失败。生成办法：`openssl rand -base64 48`。
 - 所有实例必须用同一个值，滚动发布时的新旧容器也一样，否则互相不认对方签的钥匙。
 - 换密钥会让已经发出的钥匙全部失效，刷新页面即可拿到新的。
+- 不要和 `security.encryption.password` 用同一个值。加密口令一旦有了密文就不能换，而这个密钥要能随时换掉，好让发出去的钥匙一起作废。加密口令用之前还会被拉长，HMAC 密钥则原样使用，所以必须是够长的随机串。
 
 应用要在 `permission.authenticated-bypass-patterns` 里放开 `/file/open/**`：权限拦截器从这个路径认不出模型，原因和 `/file/uploadFileTo*` 相同。放开的是接口，不是数据：钥匙由打开接口自己校验。`/openapi/**` 本来就是公开路径，不用配。
 

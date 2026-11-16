@@ -132,7 +132,7 @@ flowchart LR
 
 <Dev title="内置的提供商与实现">
 
-内置适配器：Twilio、Infobip、Bird、CM、Sinch、阿里云、腾讯云（`SmsProvider`）。国家由 [libphonenumber](https://github.com/google/libphonenumber) 从 E.164 号码按最长前缀解析，所以 `+886…` 是 TW，不会被 `+86` 误认为 CN。候选由 `SmsProviderDispatcher` 给出，与模板绑定求交由 `SmsRoutingPlanner` 完成。`SmsProviderConfig`、`SmsProviderRegion`、`SmsTemplate`、`SmsTemplateProviderBinding` 都不是多租户模型，没有 `tenant_id` 列。提供商配置在 Redis 里缓存 5 分钟，任何写入（管理界面的保存也一样）提交后都会清掉它的缓存，修改立即生效。提供商的 `apiKey`、`apiSecret` 加密存储，接口读取时打码；修改时不传这两个字段就保留原值。message-starter 要求 classpath 上有 `reference-data-starter`，国家路由离不开它。
+内置适配器：Twilio、Infobip、Bird、CM、Sinch、ClickSend、BytePlus、阿里云、腾讯云（`SmsProvider`）。国家由 [libphonenumber](https://github.com/google/libphonenumber) 从 E.164 号码按最长前缀解析，所以 `+886…` 是 TW，不会被 `+86` 误认为 CN。候选由 `SmsProviderDispatcher` 给出，与模板绑定求交由 `SmsRoutingPlanner` 完成。`SmsProviderConfig`、`SmsProviderRegion`、`SmsTemplate`、`SmsTemplateProviderBinding` 都不是多租户模型，没有 `tenant_id` 列。提供商配置在 Redis 里缓存 5 分钟，任何写入（管理界面的保存也一样）提交后都会清掉它的缓存，修改立即生效。提供商的 `apiKey`、`apiSecret` 加密存储，接口读取时打码；修改时不传这两个字段就保留原值。message-starter 要求 classpath 上有 `reference-data-starter`，国家路由离不开它。
 
 </Dev>
 

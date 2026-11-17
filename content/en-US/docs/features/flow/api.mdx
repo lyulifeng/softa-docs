@@ -342,7 +342,7 @@ Base path: `/flow/approvalTasks`
 | `POST` | `/flow/approvalTasks/search` | One page of the current actor's own tasks in a box: `{box, filters?, orders?, pageNumber?, pageSize?}` (`FlowApprovalTaskSearchRequest`; pages default to 1 and 50) → `Page<FlowApprovalTaskView>`. `box` is `Pending` — the approval tasks waiting on them, newest first; `Handled` — the approval tasks that closed, whatever closed them, latest closed first; or `Cc` — their CC tasks, read and unread, newest first. `filters` / `orders` on stored fields of `FlowApprovalTask`: see [Filtering and sorting a list](#filtering-and-sorting-a-list) |
 | `GET` | `/flow/approvalTasks/instance/{instanceId}` | All tasks for one runtime instance (participants / submitter only) |
 
-Each task `/search` lists (`FlowApprovalTaskView`) comes with its instance's context, every user, employee and department named; `/instance/{instanceId}` is the tasks an instance's own page reads, the instance already on the page, and carries the task's own fields only:
+Each task `/search` lists (`FlowApprovalTaskView`) comes with its instance's context, every user, employee and department named; `/instance/{instanceId}` is the tasks an instance's own page reads, the instance already on the page, and carries the task's own fields only, and the last three below (`returnAllowed`, `fillIn`, `batchable`) — what the page offers its approver, as the lists do:
 
 | Field | Holds |
 |---|---|
@@ -357,7 +357,7 @@ Each task `/search` lists (`FlowApprovalTaskView`) comes with its instance's con
 | `fillIn` | The step makes a field required: the approver fills it in and submits, rather than just approving |
 | `batchable` | Open to its approver now — pending, the instance waiting — on a step that is not `fillIn` |
 
-`returnAllowed`, `fillIn` and `batchable` are what its step's configuration says about acting on it, read from the revision the instance runs on. See [Batch actions](./approval#batch-actions).
+`returnAllowed`, `fillIn` and `batchable` are what its step's configuration says about acting on it, read from the revision the instance runs on; `/search` and `/instance/{instanceId}` both carry them. See [Batch actions](./approval#batch-actions).
 
 The tasks are a projection of the approval history, brought up to date on every change of the instance:
 

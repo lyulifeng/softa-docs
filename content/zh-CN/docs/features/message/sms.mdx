@@ -38,7 +38,7 @@ List<Long> ids = messageService.sendSmsBatch(List.of(
 
 | 字段 | 说明 |
 |---|---|
-| `phoneNumber` | 一个 E.164 号码；受理时检查格式，并要求能识别出所属国家 |
+| `phoneNumber` | 一个带国家码的号码，如 `+6591234567`。空格、横线、括号会被去掉，记录里存的、发给提供商的都是 E.164。受理时拒收：没有国家码的、带字母或分机号的、位数不符合所属国家的，以及认不出国家的（+1、+7、+44、+61 这类多国共用国家码下、libphonenumber 还不认识的号段）。不检查号段是否已分配：国家新开的号段在升级 libphonenumber 之前照样能发，没分配的号段由提供商拒收 |
 | `content` | 直接给的内容；给了就不再用模板渲染 |
 | `templateCode`、`templateVariables` | 模板和变量 |
 | `providerConfigId` | 指定提供商，跳过按国家的路由 |
@@ -46,6 +46,8 @@ List<Long> ids = messageService.sendSmsBatch(List.of(
 | `scope` | `TENANT`（默认）或 `PLATFORM`：对短信没有作用，只记在记录上。模板和提供商路由都只有平台一份；记录记在调用时所在的租户名下、扣它的额度，见[租户层与平台层](./index#租户层与平台层) |
 
 批量方法接受 1 到 500 条独立消息，一条一个号码、一条记录，先全部检查再写，按输入顺序返回 id。
+
+要给刚输入的号码发验证码的界面，发送前先调 `MessageService.canSendSms(phoneNumber)`：号码受理得了、并且这个国家有可用的路由，才返回 true，这样可以在发送前告诉用户这个国家暂不支持。`sendSms` 本身不因为没有路由而拒收：记录在首次投递时以 `CONFIG_NOT_RESOLVABLE` 失败，补上路由后重试即可。
 
 ## 模板
 

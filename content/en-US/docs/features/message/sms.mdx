@@ -38,7 +38,7 @@ List<Long> ids = messageService.sendSmsBatch(List.of(
 
 | Field | Description |
 |---|---|
-| `phoneNumber` | One E.164 number; at acceptance its format is checked, and its country must be recognizable |
+| `phoneNumber` | One number with its country code, such as `+6591234567`. Spaces, dashes and brackets are dropped: the record stores, and the provider is sent, E.164. Acceptance refuses a number without its country code, one with letters or an extension, one with the wrong number of digits for its country, and one whose country cannot be told (a range libphonenumber does not know yet under a calling code several countries share, such as +1, +7, +44 or +61). Whether the range is assigned is not checked: a range a country opens can be sent to before libphonenumber is upgraded, and a number in an unassigned range is the provider's to refuse |
 | `content` | Content given directly; when given, no template is rendered |
 | `templateCode`, `templateVariables` | The template and its variables |
 | `providerConfigId` | Names the provider, skipping routing by country |
@@ -46,6 +46,8 @@ List<Long> ids = messageService.sendSmsBatch(List.of(
 | `scope` | `TENANT` (default) or `PLATFORM`: has no effect for SMS and is only recorded on the send. Templates and provider routing exist once, on the platform; the record is filed under, and draws on the quotas of, the tenant the call is made in, see [Tenant tier and platform tier](./index#tenant-tier-and-platform-tier) |
 
 The batch method takes 1 to 500 independent messages, each with one number and one record; it checks them all before writing any, and returns the ids in input order.
+
+A screen about to text a code to a number the person just typed calls `MessageService.canSendSms(phoneNumber)` first: it is true only when the number would be accepted and its country has a usable route, so the screen can say the country is not supported before sending. `sendSms` itself does not refuse a number for want of a route: the record fails with `CONFIG_NOT_RESOLVABLE` on its first attempt, and a retry once the route is added recovers it.
 
 ## Templates
 

@@ -2,7 +2,7 @@
 
 <Lead>
 
-An SMS goes to one number. The recipient's country decides which provider sends it: when the country has routes, the choice is among those providers only, and the default provider is used only when it has none; a template can also have its own template id and signature at each provider. One provider is chosen on the first attempt and written to the record; retries replay it as it is and never change provider.
+An SMS goes to one number. The recipient's country decides which provider sends it: the choice is only among the providers the country's routes point to, and a country with no route cannot be sent to; a template can also have its own template id and signature at each provider. One provider is chosen on the first attempt and written to the record; retries replay it as it is and never change provider.
 
 </Lead>
 
@@ -71,56 +71,55 @@ Some providers (Aliyun and Tencent Cloud, for example) require sending with a te
 
 <Lead>
 
-First, does the recipient's country have route rows? If it does, the choice is only among the providers those rows point to; only if it does not are the providers marked default used; with neither, the record fails with `CONFIG_NOT_RESOLVABLE`. There is no implicit "any active provider will do".
+First, does the recipient's country have route rows? If it does, the choice is only among the enabled providers those rows point to; if it does not, sending to that country is not supported yet and the record fails with `CONFIG_NOT_RESOLVABLE`. There is no default provider, and no implicit "any active provider will do".
 
 </Lead>
 
 ```mermaid
 flowchart LR
     N["Recipient number<br/>+8613800138000"] --> C["Parse country: CN"]
-    C --> P{"Route rows for<br/>this country?"}
+    C --> P{"Route rows for this country<br/>with an enabled provider?"}
     P -- Yes --> L1["Only these rows' providers<br/>ordered by the row's priority"]
-    P -- No --> D{"Any default<br/>provider?"}
-    D -- Yes --> L2["Default providers<br/>ordered by priority"]
-    D -- No --> F["Record fails<br/>CONFIG_NOT_RESOLVABLE"]
+    P -- No --> F["Record fails<br/>CONFIG_NOT_RESOLVABLE"]
     L1 --> B["If the template has bindings:<br/>intersect, pick the preferred one"]
-    L2 --> B
     B --> R["Written to the record: provider,<br/>external template id, signature"]
 ```
 
 | Table | Purpose | Per-row data |
 |---|---|---|
-| `sms_provider_config` | Provider accounts and credentials | API key, sender number, `isDefault`, `priority` |
+| `sms_provider_config` | Provider accounts and credentials | API key, sender number or sender ID, rate limits |
 | `sms_provider_region` | Routing by country | `region_code` (ISO 3166-1 alpha-2 country code), `dial_code`, `priority` |
 
 One provider account usually serves many countries, so routing has a table of its own, and each country's priority is on its route row. When route rows are written through the service, country codes are validated against the country table of `reference-data-starter`; `dial_code` (the international calling code) is filled in by the framework from the country code, and lists show a route as "CN (+86) → Aliyun"; do not edit `dial_code` by hand.
 
-- **An exact match wins outright.** As soon as any route row matches the recipient's country, only the providers of the matching rows are used; the default providers are not merged in. When the providers the route rows point to are all disabled or missing, the country is treated as having no route, and the default providers are used instead.
-- **Defaults are used only when there are no route rows.** There is no wildcard row such as `region_code = '*'`; "every other country" is expressed by `isDefault = true`.
-- **To have a default provider also serve a configured country, add another route row for that country.** That way a country configured explicitly never goes out through another channel by mistake (SMS to Taiwan never goes through a mainland-China-only line, for example).
+The recipient's country is parsed from the number by its number ranges (libphonenumber), not from the country table's calling codes: calling codes are shared, +1 by the United States, Canada and others, +64 by New Zealand and the Pitcairn Islands, so a calling code alone cannot tell the country.
+
+- **Only route rows send.** A provider serves a country only through an enabled route row for that country, and only while the provider itself is enabled. There is no wildcard row such as `region_code = '*'` and no default provider: a country without routes is not supported, and when the providers its route rows point to are all disabled or missing, the record fails the same way.
+- **Candidate order.** A country's candidates are ordered by the route row's `priority` (lower first), ties going by the provider config's id.
+- **Switching to a backup is manual.** A record keeps the provider chosen on its first attempt, and retries do not change it; a provider further down is used only once the route rows or providers above it are disabled.
+- **To have a provider serve a country, add a route row of its own for that country.** That way the channel each country goes out through is configured explicitly (SMS to Taiwan never goes through a mainland-China-only line, for example).
 - **Not split by tenant.** There is one set of routes, the platform's, and every tenant's SMS goes by it, `PLATFORM`-scope SMS too.
 
 For example, with this configuration:
 
-| `sms_provider_config` | id | name | provider_type | is_default | priority |
-|---|---|---|---|---|---|
-|  | 1 | Aliyun-China | Aliyun | false | 10 |
-|  | 2 | Tencent-China | Tencent | false | 20 |
-|  | 3 | Twilio-Global | Twilio | true | 1 |
-|  | 4 | Infobip-Backup | Infobip | true | 2 |
+| `sms_provider_config` | id | name | provider_type |
+|---|---|---|---|
+|  | 1 | Aliyun-China | Aliyun |
+|  | 2 | Tencent-China | Tencent |
+|  | 3 | Twilio-Global | Twilio |
 
 | `sms_provider_region` | provider_config_id | region_code | priority |
 |---|---|---|---|
 |  | 1 | CN | 10 |
 |  | 2 | CN | 20 |
 |  | 3 | TW | 10 |
+|  | 3 | US | 10 |
 
 | Recipient | Candidate providers | Notes |
 |---|---|---|
-| `+8613800138000` (CN) | Aliyun, Tencent | Exact match, ordered by the route rows' priority |
-| `+886912345678` (TW) | Twilio | Exact match; Infobip is not added as a fallback |
-| `+33123456789` (FR) | Twilio, Infobip | No route row for FR, so the default providers |
-| A country with no route rows and no default provider | — | The record fails with `CONFIG_NOT_RESOLVABLE`; retry once the configuration is filled in |
+| `+8613800138000` (CN) | Aliyun, Tencent | Ordered by the route rows' priority |
+| `+886912345678` (TW) | Twilio | An account serving several countries has a route row for each |
+| `+33123456789` (FR) | — | No route row for FR, so not supported: the record fails with `CONFIG_NOT_RESOLVABLE`; retry once a route row is added |
 
 ### Picking one provider
 

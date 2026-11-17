@@ -498,6 +498,7 @@ What a row link costs: text in a linked row cannot be selected by dragging (a dr
 Detailed behavior is covered in [ModelTable](./table), including:
 
 - import/export tabs and flows
+- the export dialog's `For re-import` group under `By Template`: a caller who also holds the import exports into an import template and imports the edited file back with it (backend: "5. Export for re-import (by import template)" in [Data Export](../../features/file/export))
 - export scope rules
 - history-tab renderer reuse
 

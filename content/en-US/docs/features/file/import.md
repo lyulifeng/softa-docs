@@ -127,6 +127,8 @@ Endpoint:
 
 The generated template uses field labels as headers. Required headers are styled.
 
+This is the blank form of the template's workbook. To change existing records, export them into the same workbook with `POST /export/exportByImportTemplate` (see "5. Export for re-import (by import template)" in [Data Export](./export)), edit the file, and import it back with this template.
+
 3. Import by template
 
 Endpoint:

@@ -495,6 +495,7 @@ const hrefOf = useApprovalRequestHref();
 详细行为见 [ModelTable](./table)，包括：
 
 - 导入 / 导出 tab 与流程
+- 导出对话框「By Template」里的「For re-import」分组：同时有导入权限的人可按导入模板导出，改完用同一模板导回（后端见[数据导出](../../features/file/export)的「5. 按导入模板导出（用于导回）」）
 - 导出范围规则
 - history-tab 渲染器复用
 

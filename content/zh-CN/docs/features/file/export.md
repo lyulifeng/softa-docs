@@ -13,6 +13,8 @@ File Starter 支持三种导出模式：
 
 3. 动态导出
   - 通过在请求中直接提供字段和 filters 进行无模板导出
+4. 按导入模板导出（用于导回）
+  - 把记录写进某个导入模板自己的工作簿，改完用同一个模板导回，见下文「5. 按导入模板导出（用于导回）」
 
 内置导出支持三种范围：
 - `Selected Rows` 使用当前工具栏批量选中的 id
@@ -200,3 +202,31 @@ public class ProductExportHandler implements CustomExportHandler {
 约定：
 - 可原地更新行值。
 - 不应替换行映射对象。
+
+### 5. 按导入模板导出（用于导回）
+导入模板是「这个模型一张能导入的表长什么样」的唯一说明：有哪些列，每个关联按哪个键认（`departmentId.code`、`jobLevelId.name`），一行按哪个唯一键找回原记录，国家，下拉。动态导出不知道这些，关联写的是显示名，所以导出的文件导不回去。按导入模板导出时，文件就是这个模板自己的工作簿（与「下载模板」给出的空白模板同一套表头、下拉、日期格式和说明页，由 `ImportTemplateWorkbook` 生成），只是表头下面带上了记录，改完用同一个模板导回，不需要重新映射列。
+
+端点（都挂在导出权限下；服务里还要求调用人有该模型的导入权限——这样的文件是给能导回的人用的）：
+- `POST /export/listImportTemplates?modelName={model}`：该模型自己的、调用人能用来导出的导入模板，按显示顺序返回；每个带上文件的列（`header`、`required`）、匹配原记录用的列表头（`matchHeaders`）、`ignoreEmpty` 和 `country`。调用人不能同时导出和导入该模型时返回空列表。
+- `POST /export/exportByImportTemplate?modelName={model}&importTemplateId={id}`：请求体为 `ExportParams`（filters、orders、生效日期；`fields` 不用，列以模板为准），返回文件；导出历史的 `importTemplateId` 记下所用的导入模板。
+
+只有能把行匹配回原记录的模板可用：
+- `importRule` 是 `CreateOrUpdate` 或 `OnlyUpdate`：用 `OnlyCreate` 导出，导回时每条记录都会再新建一次；
+- 模型没有生效日期版本（`timeline`）：用于导回的文件暂不带版本；
+- `uniqueConstraints` 不为空，且每个字段都有列；唯一键里的关联字段由它的反查列覆盖（`companyId` 由 `companyId.code` 覆盖）；
+- 没有指向多条记录的列（`roleIds.code`），暂不支持。
+
+每列按导入这一列的读法来读，单元格里写的就是导入要的值：
+- 点路径列（`departmentId.code`、`employeeProfileId.passType.name`）按原路径读，即这个关联用来认记录的键；
+- 裸的多对一列（`currency`）读关联记录的 id（`currency.id`）：导入在这一列要的是 id，编码即主键的主数据就是它的编码（`SGD`），而不是按显示值读出的名称；
+- 其余列按导出的显示值读（`ConvertType.DISPLAY`）：选项写标签，布尔写 Yes / No，导入都认，模板的下拉列的也是标签。
+
+按调用人能看到的模板来写：
+- 调用人不能写的列本来就不在模板里（`ImportService.getImportTemplateDTO`），空白模板也没有这些列；
+- 调用人永远看不到的敏感字段（`PermissionService.getHiddenSensitiveFields`）：非必填列从文件里去掉——导入只缺非必填列时照常导入，也就不会写这个字段；必填列则这个模板对他不可用。
+
+为某个国家写的模板只导出该国的行，判断方式与导入判断一行所属国家相同：看这一行指向的公司（第一个指向公司模型的多对一字段，员工上是 `legalEntityId`；查询时才连接的公司锚点字段按它的来源路径），公司模型本身看它自己的 `country`。没有指向公司的模型不过滤。
+
+工作簿里的下拉和筛选覆盖所有记录再加 `5000` 行（`OptionDropdownHandler`、`ImportSheetStyleHandler.forTemplate(fields, dataRows)`），与空白模板覆盖 5000 行一致。
+
+变更说明：`ExportHistory.importTemplateId` 是新列。`scanner-scope` 覆盖 `io\.softa\.starter\.file\.entity` 的环境启动时自动加列；`scanner-scope` 为空的环境要在新 jar 启动前手工加列（`ALTER TABLE export_history ADD COLUMN import_template_id BIGINT NULL`，`sys_field` 行按该环境添加目录行的方式补上）。

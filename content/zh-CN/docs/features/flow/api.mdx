@@ -342,7 +342,7 @@
 | `POST` | `/flow/approvalTasks/search` | 当前 actor 本人在某个任务箱里的任务，一页：`{box, filters?, orders?, pageNumber?, pageSize?}`（`FlowApprovalTaskSearchRequest`；页码默认 1，每页默认 50）→ `Page<FlowApprovalTaskView>`。`box` 为 `Pending`——等其处理的审批任务，最新在前；`Handled`——已经关闭的审批任务，不论因何关闭，最近关闭的在前；或 `Cc`——其抄送任务，已读未读都有，最新的在前。`filters` / `orders` 针对 `FlowApprovalTask` 的存储字段：见[筛选与排序列表](#筛选与排序列表) |
 | `GET` | `/flow/approvalTasks/instance/{instanceId}` | 一个运行时实例的所有任务（仅参与者 / 提交人） |
 
-`/search` 列出的每个任务（`FlowApprovalTaskView`）带有其实例的上下文，所有用户、员工和部门都显示名称；`/instance/{instanceId}` 是实例页自己读的任务，实例已在页面上，只返回任务自身的字段：
+`/search` 列出的每个任务（`FlowApprovalTaskView`）带有其实例的上下文，所有用户、员工和部门都显示名称；`/instance/{instanceId}` 是实例页自己读的任务，实例已在页面上，只返回任务自身的字段，外加表中最后三项（`returnAllowed`、`fillIn`、`batchable`）——页面靠它们决定给审批人哪些操作，和列表里一样：
 
 | 字段 | 内容 |
 |---|---|
@@ -357,7 +357,7 @@
 | `fillIn` | 步骤有必填字段：审批人要填好再提交，而不只是批准 |
 | `batchable` | 当前对其审批人开放——待处理、实例在等待——且所在步骤不是 `fillIn` |
 
-`returnAllowed`、`fillIn` 和 `batchable` 是其步骤配置对处理方式的说明，取自实例所运行的修订版。见[批量操作](./approval#批量操作)。
+`returnAllowed`、`fillIn` 和 `batchable` 是其步骤配置对处理方式的说明，取自实例所运行的修订版；`/search` 和 `/instance/{instanceId}` 都带。见[批量操作](./approval#批量操作)。
 
 任务是审批历史的投影，实例每有变化就随之更新：
 

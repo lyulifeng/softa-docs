@@ -613,9 +613,9 @@ When something goes wrong, check "When things go wrong" first. A configuration e
 | A final record submitted again | `This record is approved and cannot be submitted again.` (rejected and cancelled records add `Raise a new one.`) |
 | Editing / deleting a record in approval | `This record is in approval and cannot be changed. Withdraw it first to edit it.` / `A record in approval cannot be deleted. Withdraw it first.` |
 | Cancelling a record in approval | `This record is in approval. Withdraw it first, then cancel the draft.` |
-| Reject / return without a comment | `A comment is required to reject approval node: {node}` (return likewise) |
+| Reject / return without a comment | `A comment is required to reject: say why.` / `A comment is required to return: say what to change.` |
 | The flow does not allow a return | `Flow '{flow}' does not allow returning an approval to its initiator` |
-| Withdrawal refused | `Flow instance does not allow initiator withdrawal: {id}` / `An approver has already acted on this approval, so it can no longer be withdrawn: {id}` |
+| Withdrawal refused | `This request cannot be withdrawn: its approval flow does not allow withdrawal.` / `This request can no longer be withdrawn: an approver has already acted on it. Refresh to see where it stands.` |
 | No approver resolved | `No approver was found for step '{label}': {why}. Ask your HR administrator to set one up, then try again.` (without the `: {why}` part when the source cannot tell) |
 | Nobody in the roles either | `No approver was found for step '{label}', and nobody in {roles} can take it. Ask your HR administrator to set one up, then try again.` |
 | Target's account cannot act | `Ann Lee's account is frozen.` (not activated, invitation not accepted, locked, deactivated and no account each have their wording; several people are joined with `; `) |

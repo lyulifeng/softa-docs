@@ -42,6 +42,8 @@
 | 无权操作（`FlowAuthorizationException`） | `403` |
 | 编译不过的流程 | `400`，附全部诊断——只有 `Error` 才会拒绝，`Warning` 只是提示 |
 
+消息原样显示给被拒绝的人（网页和 App 都一样），所以只用对方看得懂的话说明发生了什么，不带实例、单据、步骤或账号的 id；每次拒绝都和当时的请求（路径、参数、用户、traceId）一起记进服务端日志，要查 id 看日志。
+
 其他错误仍交给 softa-web 兜底 `Throwable` 的处理器——记日志、返回 `500`，原因不进响应。
 
 <Dev title="为什么 FlowExceptionHandler 排在最前">

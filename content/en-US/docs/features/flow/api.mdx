@@ -42,6 +42,8 @@ Approvers act, people read their tasks, a record's approval and a saved record's
 | A caller not allowed (`FlowAuthorizationException`) | `403` |
 | A flow that does not compile | `400`, with all its diagnostics — only an `Error` refuses, a `Warning` is advice |
 
+The message is shown as it is to the person refused, on the web and in the app, so it says what happened in their words and names no instance, record, step or account id; each refusal is logged on the server with the request that met it — path, parameters, user, trace id — where the ids are found.
+
 Any other error still reaches softa-web's `Throwable` catch-all — logged, answered `500`, its message kept out of the response.
 
 <Dev title="Why FlowExceptionHandler is ordered first">

@@ -613,9 +613,9 @@
 | 终态单据再提交 | `This record is approved and cannot be submitted again.`（拒绝、作废的单据会加上 `Raise a new one.`） |
 | 修改 / 删除审批中的单据 | `This record is in approval and cannot be changed. Withdraw it first to edit it.` / `A record in approval cannot be deleted. Withdraw it first.` |
 | 作废审批中的单据 | `This record is in approval. Withdraw it first, then cancel the draft.` |
-| 拒绝 / 退回没写意见 | `A comment is required to reject approval node: {node}`（退回同理） |
+| 拒绝 / 退回没写意见 | `A comment is required to reject: say why.` / `A comment is required to return: say what to change.` |
 | 流程不允许退回 | `Flow '{flow}' does not allow returning an approval to its initiator` |
-| 撤回被拒 | `Flow instance does not allow initiator withdrawal: {id}` / `An approver has already acted on this approval, so it can no longer be withdrawn: {id}` |
+| 撤回被拒 | `This request cannot be withdrawn: its approval flow does not allow withdrawal.` / `This request can no longer be withdrawn: an approver has already acted on it. Refresh to see where it stands.` |
 | 解析不到审批人 | `No approver was found for step '{label}': {原因}. Ask your HR administrator to set one up, then try again.`（说不出原因时没有 `: {原因}` 这一段） |
 | 转给角色后也没人 | `No approver was found for step '{label}', and nobody in {roles} can take it. Ask your HR administrator to set one up, then try again.` |
 | 对象账号不能使用 | `Ann Lee's account is frozen.`（未激活、未接受邀请、锁定、离职、没有账号各有说法；多人时以 `; ` 连接） |

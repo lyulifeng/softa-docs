@@ -191,6 +191,7 @@
 | 上级 `Supervisor` | 第 N 级上级，默认从当事员工算起 | `level`；`relativeTo`，见[按当事员工找](#按当事员工找) |
 | 部门负责人 `DeptLeader` | 某个部门的负责人 | `deptScope`，默认当事员工的部门 |
 | 部门 HRBP `DeptHrbp` | 某个部门的 HR 业务伙伴 | `deptScope`，默认当事员工的部门 |
+| 单据上的人员 `RecordField` | 单据某个字段里写的人——例如调动的新上级 | `field`：单据自己的多对一或一对一字段，指向员工（`Employee`）或账号（`UserAccount`） |
 | 角色 `RoleQuery` | `roleIds`、`roleCodes` 或两者共同指定的角色的持有人，可选地收窄到某个部门 | `roleIds` / `roleCodes`；`deptScope`，默认不限部门 |
 | 岗位 `Position` | 岗位上的人 | `positionIds` |
 | 部门成员 `Department` | 部门的成员 | `deptIds` |
@@ -199,7 +200,14 @@
 
 **步骤必须写明由谁审批**：至少一组，每组是带类型的来源，选指定人员时至少一人；没写的步骤校验和发布都会拒绝。
 
-**没有从流程变量里取人的来源。** 审批流的变量是单据字段、当事员工的 id 和触发信息，从来没有用户 id；要按条件换人，用条件分支加指定人员。「部门取自变量」（`deptScope: VARIABLE_DEPT`）保留：它读单据上的部门字段。
+**单据上的人员读的是单据自己的字段。** 字段里写的是谁，这一步就由谁审批：
+
+- `field` 只能是这张单据自己的多对一或一对一字段，指向员工或账号；发布时校验，设计器也只列这些字段。指向员工的，用这名员工的登录账号审批。
+- 值取提交时的单据；审批人改了这个字段（见[审批人的写入](#审批人的写入)），之后的步骤按改后的值找人，已经开始的步骤不换人。
+- 字段为空，或者字段里的人不能审批，按[找不到审批人时](#找不到审批人时)处理，原因写明是哪个字段、是谁（「New Manager on the request is empty」）。不会转给他的上级：要往上交的，用上级来源。字段选填的（比如调动不一定换上级），设成自动通过就能在没填时跳过这一步，也可以用条件分支绕开。
+- 不经关联读：关联记录上的人——部门负责人、员工的上级——是组织里的关系，由上级、部门负责人这些来源去找，它们在找不到能审批的人时会往上交。部门类来源的「单据上的部门」（`deptScope: VARIABLE_DEPT`）同样只读单据自己指向部门的字段。
+
+**没有按变量名取人的来源。** 来源里不能填一个变量名去取人；要按条件换人，用条件分支加指定人员。
 
 #### 找不到审批人时
 
@@ -224,10 +232,10 @@
 | `SUBJECT_DEPT` | 当事员工的部门 | `DeptLeader`、`DeptHrbp` |
 | `INITIATOR_DEPT` | 提交人的部门 | |
 | `SPECIFIC_DEPT` | `deptId` 指定的部门（`Department` 用 `deptIds`） | `Department` |
-| `VARIABLE_DEPT` | `deptVariable` 所指变量中的部门 id——例如调动的调入部门 | |
+| `VARIABLE_DEPT` | `deptVariable` 所指的单据字段里的部门：单据自己的多对一或一对一字段，指向部门（`Department`）——例如调动的调入部门。设计器里叫「单据上的部门」，只列这些字段 | |
 | `ALL` | 不限部门：所有持有人（仅 `RoleQuery`） | `RoleQuery` |
 
-无法确定的部门——没有当事员工的部门、变量为空——解析为无人，而不会变成所有持有人；该步骤随后按找不到审批人的设置处理。没有当事员工的实例从其提交人开始解析。
+无法确定的部门——没有当事员工的部门、字段为空——解析为无人，而不会变成所有持有人；该步骤随后按找不到审批人的设置处理。没有当事员工的实例从其提交人开始解析。
 
 按提交人算（`INITIATOR`、`INITIATOR_DEPT`）只在确实要提交人那边确认时用：例如 HR 专员代录调薪、调岗，先由录入人的上级确认录入，再走员工的上级。员工自己提交时两者找到的人一样；代提交时，按提交人算的这一步会送到提交人的上级或部门，而不是员工的。
 
@@ -282,6 +290,7 @@
 - 只有指定人员能在到达步骤前数清人数，所以每组都是指定人员时，「至少 N 人同意」超过各组合起来的人数（同一个人只算一次）才报错。
 - 转给角色却一个角色都没选，报 `MISSING_EMPTY_APPROVER_ROLES`。「找不到审批人时」只在有一组按规则找人时生效，所以只配了指定人员的步骤，校验也不检查它的角色。
 - 编译器会拒绝某个来源不接受的部门范围，以及缺少必需信息的范围（`INVALID_DEPT_SCOPE`、`MISSING_DEPT_IDS`、`MISSING_DEPT_VARIABLE`、`INVALID_RELATIVE_TO`）。
+- 读单据字段的来源要选单据自己的、指向对象的字段，报在那个字段上：单据上的人员没选字段报 `MISSING_RECORD_FIELD`，选的不是指向员工或账号的字段报 `INVALID_RECORD_FIELD`（`config.approverSources.<序号>.field`）；「单据上的部门」选的不是指向部门的字段报 `INVALID_DEPT_VARIABLE`（`.deptVariable`）。计算字段（`dynamic`）和敏感字段也不行——审批不带它们的值，提示里会说明；流程不审批单据时没有字段可读，也会报错。
 - 配置里读不了的值——例如早先设计器给出的常量名 `ERROR`——在其字段上报告（`UNREADABLE_CONFIG`），而不是让整次校验失败；重新选一次即可。
 
 </Dev>
@@ -307,7 +316,7 @@
 | `MinCount` | 配置的人数（`minCount`） |
 | `Percentage` | 审批人数 × 百分比 ÷ 100，向上取整 |
 
-- **只在这一步可能有多个审批人时生效**：有几组，或者唯一的一组是几个指定的人、角色、岗位、部门成员。唯一的一组只有一个指定的人，或者是上级、部门负责人、部门 HRBP（每次只找到一个人；部门负责人、HRBP 只有「变量里的部门」给了多个部门时才会多人）时，一人同意即通过，不管存的是什么——哪种模式结果都一样——设计器不显示这一项，校验也不检查它。
+- **只在这一步可能有多个审批人时生效**：有几组，或者唯一的一组是几个指定的人、角色、岗位、部门成员。唯一的一组只有一个指定的人，或者是上级、部门负责人、部门 HRBP、单据上的人员（每次只找到一个人）时，一人同意即通过，不管存的是什么——哪种模式结果都一样——设计器不显示这一项，校验也不检查它。
 - **驳回没有门槛：一个审批人驳回，这次审批就被驳回**，不管这一步要几票通过——会签（全部通过）和或签（任一人通过）都一样，主流审批产品也是这样。已经同意过这一步的审批人不能再驳回。
 - 同一个人在一个步骤只能投一次有效票。
 - **票数在步骤开始时算好**，并按这一步实际的审批人封顶：所需批准票数不超过审批人数。转交时票数不变；管理员转派把两人合并为一个位置时，按同一规则封顶——合并后这一步已经够票的，当场通过（三人全部通过的步骤，另两人已同意，第三人的位置并入其中一人）。
@@ -352,14 +361,14 @@
 抄送是整个审批的设置，只在流程设置里配置，审批步骤本身没有抄送配置。规则（`cc`，一组 `FlowCcRule`）随流程版本发布，实例按它运行的版本执行。每条规则写明：
 
 - **何时**：提交时（`OnSubmit`）；通过后（`OnApproved`，整个审批以批准结束时）；驳回后（`OnRejected`，整个审批以拒绝结束时——即第一个人驳回时）。
-- **抄送谁**：`recipientSource`，一组人，与审批步骤 `approverSources` 里的每一组同形——指定人员，或按规则查找：当事员工的上级、部门负责人、角色、岗位、部门成员……。按[审批人解析](#审批人解析)的方式查找，不受提交人数据权限的限制；账号不能使用的人不抄送。同一时机要抄送几组人，就加几条规则。
+- **抄送谁**：`recipientSource`，一组人，与审批步骤 `approverSources` 里的每一组同形——指定人员，或按规则查找：当事员工的上级、部门负责人、单据上的人员、角色、岗位、部门成员……。按[审批人解析](#审批人解析)的方式查找，不受提交人数据权限的限制；账号不能使用的人不抄送。同一时机要抄送几组人，就加几条规则。
 
 接收人在「抄送我」里有一条待阅、收到站内通知，并成为参与者：可以查看、评论。同一节点已经抄送过的人——不论是规则还是手动——不会重复抄送。审批人也可以在审批时手动抄送，一次选一人或多人——见[审批动作](#审批动作)。
 
 <Dev title="规则何时执行、怎样记录">
 
 - 通过后的规则不论是哪一次运行让审批结束都会执行——审批人批准、重跑、管理员转派（审批流只放人和路由之前发布的修订版上，还有异步任务恢复实例）：它在实例完成的地方执行，和「已批准」通知一起，而不是由每个可能走到那里的动作各自执行。
-- 指定人员写作 `{"type": "Users", "userIds": [...]}`。
+- 指定人员写作 `{"type": "Users", "userIds": [...]}`，单据上的人员写作 `{"type": "RecordField", "field": "newPiEmployeeId"}`。读单据字段的来源和审批步骤一样校验字段，不合格报 `INVALID_CC_RULE`；字段为空就不抄送。
 - 规则抄送与手动抄送记录方式相同：每个接收人一条 `CC` 记录，没有操作人（不是某个人发的），落在开始节点（提交时的，在开始节点往下走过任何步骤之前记下；路上没有经过任何审批步骤时，通过后的也在这里）或结束审批的那一步上——通过后的落在最后完成的那个审批步骤上。
 
 </Dev>
@@ -693,7 +702,7 @@
 
 - 结构：`MISSING_DEFINITION` `MISSING_FLOW_NAME` `MISSING_SCENARIO` `EMPTY_GRAPH` `NO_START_NODE` `MULTIPLE_START_NODES` `MISSING_NODE_ID` `MISSING_NODE_TYPE` `DUPLICATE_NODE_ID` `MISSING_EDGE_ID` `MISSING_EDGE_ENDPOINT` `DUPLICATE_EDGE_ID` `UNKNOWN_EDGE_SOURCE` `UNKNOWN_EDGE_TARGET` `GRAPH_CYCLE` `UNREACHABLE_NODE` `MISSING_NODE_LABEL`
 - 场景与触发器：`INVALID_SCENARIO_NODE` `MISSING_TRIGGER` `TRIGGER_NOT_ALLOWED` `MISSING_MODEL` `MODEL_NOT_APPROVABLE` `CONFLICTING_TRIGGER_CONDITIONS` `INVALID_TRIGGER_CONDITION` `CRON_MISSING_EXPRESSION` `CRON_INVALID_EXPRESSION` `APPROVAL_SETTING_OUTSIDE_APPROVAL` `INVALID_URGE_INTERVAL` `INVALID_REMIND_AFTER_HOURS` `INVALID_CC_RULE` `SYNC_OUTSIDE_AUTOMATION` `SYNC_FLOW_WAITS` `SUBFLOW_WAITS` `ROLLBACK_WITHOUT_SYNC`
-- 审批节点：`UNKNOWN_APPROVER_SOURCE_TYPE` `INVALID_SUPERVISOR_LEVEL` `INVALID_RELATIVE_TO` `INVALID_DEPT_SCOPE` `MISSING_DEPT_IDS` `MISSING_DEPT_VARIABLE` `MISSING_ROLE_IDS` `MISSING_POSITION_IDS` `BLANK_APPROVER` `DUPLICATE_APPROVER` `MISSING_APPROVERS` `INVALID_MIN_COUNT` `INVALID_PERCENTAGE` `MISSING_FIELD_PERMISSION` `UNREADABLE_CONFIG` `MISSING_EMPTY_APPROVER_ROLES`
+- 审批节点：`UNKNOWN_APPROVER_SOURCE_TYPE` `INVALID_SUPERVISOR_LEVEL` `INVALID_RELATIVE_TO` `INVALID_DEPT_SCOPE` `MISSING_DEPT_IDS` `MISSING_DEPT_VARIABLE` `INVALID_DEPT_VARIABLE` `MISSING_RECORD_FIELD` `INVALID_RECORD_FIELD` `MISSING_ROLE_IDS` `MISSING_POSITION_IDS` `BLANK_APPROVER` `DUPLICATE_APPROVER` `MISSING_APPROVERS` `INVALID_MIN_COUNT` `INVALID_PERCENTAGE` `MISSING_FIELD_PERMISSION` `UNREADABLE_CONFIG` `MISSING_EMPTY_APPROVER_ROLES`
 - 路由：`INVALID_CONDITION_EXPR` `CONFLICTING_EDGE_CONDITIONS` `RULE_WITHOUT_RECORD` `INVALID_RULE_CONDITION` `INSUFFICIENT_GATEWAY_EDGES` `MULTIPLE_DEFAULT_EDGES` `INCLUSIVE_JOIN_UNPAIRED` `DEFAULT_EDGE_NOT_LAST` `NO_DEFAULT_EDGE` `CONCURRENT_BRANCHES_MEET` `JOIN_MULTIPLE_OUTGOING` `BRANCH_ENTERS_JOIN_TWICE` `BRANCH_SKIPS_JOIN`
 - 警告（不阻止发布）：`UNUSABLE_APPROVER` `UNUSABLE_CC_RECIPIENT` `NO_APPROVAL_STEP`
 - 任务节点：`INVALID_TASK_CONFIG` `MISSING_REQUIRED_INPUT` `UNKNOWN_MODEL` `INVALID_FIELD_PATH` `INVALID_TEMPLATE_PLACEHOLDER`

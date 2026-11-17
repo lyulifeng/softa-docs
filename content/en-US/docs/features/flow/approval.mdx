@@ -191,6 +191,7 @@ A step's `config.approverSources` is one or more groups of sources, each told by
 | Supervisor `Supervisor` | The N-th level supervisor, from the employee by default | `level`; `relativeTo`, see [Relative to the employee](#relative-to-the-employee) |
 | Department leader `DeptLeader` | A department's leader | `deptScope`, by default the employee's department |
 | Department HRBP `DeptHrbp` | A department's HR business partner | `deptScope`, by default the employee's department |
+| Person on the record `RecordField` | Whoever a field of the record names — a transfer's new manager | `field`: a many-to-one or one-to-one field of the record itself, onto an employee (`Employee`) or an account (`UserAccount`) |
 | Role `RoleQuery` | Holders of the roles named by `roleIds`, by `roleCodes`, or both — optionally narrowed to a department | `roleIds` / `roleCodes`; `deptScope`, by default any department |
 | Position `Position` | The holders of the positions | `positionIds` |
 | Department members `Department` | A department's members | `deptIds` |
@@ -199,7 +200,14 @@ A step's `config.approverSources` is one or more groups of sources, each told by
 
 **A step names who approves it**: at least one group, each a source with a type, and for specific people at least one; validation and publishing refuse a step that names nobody.
 
-**No source reads its people from the flow's variables.** An approval's variables are the record's fields, the id of the employee it is about and the trigger metadata — never an account id; to change who approves by a condition, use a route condition and specific people. A department named by a variable (`deptScope: VARIABLE_DEPT`) stays: it reads a department field of the record.
+**A person on the record is read from a field of the record itself.** Whoever the field names approves the step:
+
+- `field` is one of the record's own many-to-one or one-to-one fields, onto an employee or an account; publishing checks it, and the designer offers only those fields. An employee approves under their login account.
+- The value is the record's at submission; when an approver changes the field (see [Approver's writes](#approvers-writes)), the steps after go by the new value, and a step already started keeps its approvers.
+- An empty field, or a person in it who cannot approve, follows [If nobody is found](#if-nobody-is-found), and the reason names the field and the person ("New Manager on the request is empty"). Nobody takes it up for them — use a supervisor source to go up the chain. For an optional field (a transfer that may keep the manager), approving automatically skips the step when it is empty; a route condition can go around it too.
+- Never through a relation: the people a relation leads to — a department's leader, the employee's manager — are the organization's, found by the supervisor and department sources, which go up when nobody there can approve. A department-based source's "Department in a field of the record" (`deptScope: VARIABLE_DEPT`) likewise reads one of the record's own fields onto a department.
+
+**No source takes its people from a variable named in it.** To change who approves by a condition, use a route condition and specific people.
 
 #### If nobody is found
 
@@ -224,10 +232,10 @@ The organization is read from the employee the record is about by default: a rec
 | `SUBJECT_DEPT` | the employee's | `DeptLeader`, `DeptHrbp` |
 | `INITIATOR_DEPT` | the submitter's | |
 | `SPECIFIC_DEPT` | the one named in `deptId` (`deptIds` for `Department`) | `Department` |
-| `VARIABLE_DEPT` | the id(s) held by the variable named in `deptVariable` — a transfer's receiving department | |
+| `VARIABLE_DEPT` | the one the field of the record named in `deptVariable` holds: a many-to-one or one-to-one field of the record itself, onto a department (`Department`) — a transfer's receiving department. The designer calls it "Department in a field of the record" and offers only those fields | |
 | `ALL` | none: every holder (`RoleQuery` only) | `RoleQuery` |
 
-A department that cannot be told — no department of the employee, an empty variable — resolves to nobody, never to every holder; the step then follows its empty-approver strategy. An instance with no employee starts from its submitter.
+A department that cannot be told — no department of the employee, an empty field — resolves to nobody, never to every holder; the step then follows its empty-approver strategy. An instance with no employee starts from its submitter.
 
 Starting from the submitter (`INITIATOR`, `INITIATOR_DEPT`) is for a step that really belongs on the submitter's side: an HR officer's salary change or transfer entered for someone, say, checked first by the officer's own manager before it goes to the employee's. An employee's own record finds the same people either way; on a record filed on someone's behalf, such a step goes to the submitter's manager or department, not the employee's.
 
@@ -282,6 +290,7 @@ Approvers are **login account ids**. The organization is read through the `Organ
 - Only specific people can be counted before the step is reached, so a `MinCount` above the number the groups name, each once, is refused only when every group names its people.
 - `AssignToRole` with no role chosen is `MISSING_EMPTY_APPROVER_ROLES`. The empty-approver strategy applies only to a step a group of which finds its people by rule, so validation does not judge the roles of a step that only names its people either.
 - The compiler refuses a scope a source does not take and a scope missing what it needs (`INVALID_DEPT_SCOPE`, `MISSING_DEPT_IDS`, `MISSING_DEPT_VARIABLE`, `INVALID_RELATIVE_TO`).
+- A source that reads a field of the record names one of the record's own fields onto what it reads, reported on that field: a person on the record without a field is `MISSING_RECORD_FIELD`, with a field that is not onto an employee or an account `INVALID_RECORD_FIELD` (`config.approverSources.<index>.field`); a "Department in a field of the record" whose field is not onto a department is `INVALID_DEPT_VARIABLE` (`.deptVariable`). A computed (`dynamic`) or sensitive field is refused too — an approval does not carry its value, and the message says so; so is any field of a flow that approves no record.
 - A value a config cannot be read with — a constant name such as `ERROR`, which an earlier designer offered — is reported against its field (`UNREADABLE_CONFIG`) instead of failing the validation; choose it again.
 
 </Dev>
@@ -307,7 +316,7 @@ The approval mode (`config.approvalMode`) decides how many approvals pass the st
 | `MinCount` | The configured number (`minCount`) |
 | `Percentage` | Approvers × percentage ÷ 100, rounded up |
 
-- **It applies only to a step that may have several approvers**: several groups, or one that names several people or is a role, a position or department members. A step whose one group names one person, or is a supervisor, a department leader or a department HRBP (one person each; a department leader or HRBP is several only when a variable names several departments), passes on that one's approval whatever mode it holds — the outcome any mode would give — so the designer does not show the setting and validation does not judge it.
+- **It applies only to a step that may have several approvers**: several groups, or one that names several people or is a role, a position or department members. A step whose one group names one person, or is a supervisor, a department leader or a department HRBP or a person on the record (one person each), passes on that one's approval whatever mode it holds — the outcome any mode would give — so the designer does not show the setting and validation does not judge it.
 - **A rejection has no threshold: one approver's rejection rejects the approval**, however many approvals the step counts — an all-approve step (会签) and an any-one step (或签) alike, as mainstream approval products have it. An approver who already approved the step cannot then reject it.
 - One actor casts one effective vote per step.
 - **Vote counts are fixed when a step starts**, and capped by the approvers the step has: no more approvals than approvers. A transfer leaves the count as it is; an administrator reassignment that merges two seats caps it by the same rule — and a step the merge leaves with every approval it needs passes there and then (an all-approve step of three whose other two approved, the third's seat merged into one of theirs).
@@ -352,14 +361,14 @@ Flow-level settings live in the designer's Flow settings panel (shown when no no
 CC is the whole approval's setting, set only in the flow settings; an approval step has no CC configuration of its own. The rules (`cc`, a list of `FlowCcRule`) are published with each revision, and an instance follows the rules of the revision it runs on. Each rule says:
 
 - **When**: on submit (`OnSubmit`); once approved (`OnApproved`, as the whole approval ends approved); once rejected (`OnRejected`, as it ends rejected — at the first rejection).
-- **Who**: `recipientSource`, one group in the shape of each of an approval step's `approverSources` — specific people, or people found by a rule: the supervisor of the employee the record is about, a department leader, a role, a position, a department's members…. They are found as in [Approver resolution](#approver-resolution), past the submitter's data permissions; someone whose account cannot act is not CC'd. Several groups at one timing are several rules.
+- **Who**: `recipientSource`, one group in the shape of each of an approval step's `approverSources` — specific people, or people found by a rule: the supervisor of the employee the record is about, a department leader, a person on the record, a role, a position, a department's members…. They are found as in [Approver resolution](#approver-resolution), past the submitter's data permissions; someone whose account cannot act is not CC'd. Several groups at one timing are several rules.
 
 The recipient has a CC task in their CC list, an inbox notice, and is a participant: they view and comment. Someone already CC'd on the same node — by a rule or by hand — is not CC'd again. Approvers can also CC by hand as they act, one person or several at once — see [Approval actions](#approval-actions).
 
 <Dev title="When rules run and how they are recorded">
 
 - A once-approved rule runs whichever run ends the approval — an approval, a retry, an administrator's reassignment (or, on a revision published before approval flows held people and routes only, an async task resuming it): it is run where the instance completes, with the "Approved" notice, not by each action that may lead there.
-- Specific people are written `{"type": "Users", "userIds": [...]}`.
+- Specific people are written `{"type": "Users", "userIds": [...]}`, a person on the record `{"type": "RecordField", "field": "newPiEmployeeId"}`. A source that reads a field of the record has it checked as a step's is, refused as `INVALID_CC_RULE`; an empty field CCs nobody.
 - A rule's CC is recorded like a manual one: one `CC` entry per recipient, with no actor — no person sent it — on the start node (on submit, recorded before the start runs through any step; once approved too when no approval step was passed on the way) or on the step whose action ended the approval — once approved, the approval step completed last.
 
 </Dev>
@@ -693,7 +702,7 @@ Only **warned** of, never stopping a publish: the specific people of a step or a
 
 - Structure: `MISSING_DEFINITION` `MISSING_FLOW_NAME` `MISSING_SCENARIO` `EMPTY_GRAPH` `NO_START_NODE` `MULTIPLE_START_NODES` `MISSING_NODE_ID` `MISSING_NODE_TYPE` `DUPLICATE_NODE_ID` `MISSING_EDGE_ID` `MISSING_EDGE_ENDPOINT` `DUPLICATE_EDGE_ID` `UNKNOWN_EDGE_SOURCE` `UNKNOWN_EDGE_TARGET` `GRAPH_CYCLE` `UNREACHABLE_NODE` `MISSING_NODE_LABEL`
 - Scenario and trigger: `INVALID_SCENARIO_NODE` `MISSING_TRIGGER` `TRIGGER_NOT_ALLOWED` `MISSING_MODEL` `MODEL_NOT_APPROVABLE` `CONFLICTING_TRIGGER_CONDITIONS` `INVALID_TRIGGER_CONDITION` `CRON_MISSING_EXPRESSION` `CRON_INVALID_EXPRESSION` `APPROVAL_SETTING_OUTSIDE_APPROVAL` `INVALID_URGE_INTERVAL` `INVALID_REMIND_AFTER_HOURS` `INVALID_CC_RULE` `SYNC_OUTSIDE_AUTOMATION` `SYNC_FLOW_WAITS` `SUBFLOW_WAITS` `ROLLBACK_WITHOUT_SYNC`
-- Approval nodes: `UNKNOWN_APPROVER_SOURCE_TYPE` `INVALID_SUPERVISOR_LEVEL` `INVALID_RELATIVE_TO` `INVALID_DEPT_SCOPE` `MISSING_DEPT_IDS` `MISSING_DEPT_VARIABLE` `MISSING_ROLE_IDS` `MISSING_POSITION_IDS` `BLANK_APPROVER` `DUPLICATE_APPROVER` `MISSING_APPROVERS` `INVALID_MIN_COUNT` `INVALID_PERCENTAGE` `MISSING_FIELD_PERMISSION` `UNREADABLE_CONFIG` `MISSING_EMPTY_APPROVER_ROLES`
+- Approval nodes: `UNKNOWN_APPROVER_SOURCE_TYPE` `INVALID_SUPERVISOR_LEVEL` `INVALID_RELATIVE_TO` `INVALID_DEPT_SCOPE` `MISSING_DEPT_IDS` `MISSING_DEPT_VARIABLE` `INVALID_DEPT_VARIABLE` `MISSING_RECORD_FIELD` `INVALID_RECORD_FIELD` `MISSING_ROLE_IDS` `MISSING_POSITION_IDS` `BLANK_APPROVER` `DUPLICATE_APPROVER` `MISSING_APPROVERS` `INVALID_MIN_COUNT` `INVALID_PERCENTAGE` `MISSING_FIELD_PERMISSION` `UNREADABLE_CONFIG` `MISSING_EMPTY_APPROVER_ROLES`
 - Routing: `INVALID_CONDITION_EXPR` `CONFLICTING_EDGE_CONDITIONS` `RULE_WITHOUT_RECORD` `INVALID_RULE_CONDITION` `INSUFFICIENT_GATEWAY_EDGES` `MULTIPLE_DEFAULT_EDGES` `INCLUSIVE_JOIN_UNPAIRED` `DEFAULT_EDGE_NOT_LAST` `NO_DEFAULT_EDGE` `CONCURRENT_BRANCHES_MEET` `JOIN_MULTIPLE_OUTGOING` `BRANCH_ENTERS_JOIN_TWICE` `BRANCH_SKIPS_JOIN`
 - Warnings (never stop a publish): `UNUSABLE_APPROVER` `UNUSABLE_CC_RECIPIENT` `NO_APPROVAL_STEP`
 - Task nodes: `INVALID_TASK_CONFIG` `MISSING_REQUIRED_INPUT` `UNKNOWN_MODEL` `INVALID_FIELD_PATH` `INVALID_TEMPLATE_PLACEHOLDER`

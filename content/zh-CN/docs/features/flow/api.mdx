@@ -529,8 +529,8 @@
 - 描述符包含标签、图标、排序、config schema、默认 config 以及允许的场景
 - config 字段的 `type` 指定编辑器用哪种控件
 - 每个任务节点的 config schema 在执行器自己的字段之后都有 `outputVariable`（`string`，Output variable）：结果写进的变量
-- 设置项装的是什么，就决定它的类型，编辑器据此给出合适的输入：运行时插值的文字用 `template`（正文加 `multiline`），AviatorScript 用 `expression`，一组文字（收件人、字段名）用 `stringList`，自由 JSON 载荷用 `json`，变量名用 `variableRef`，记录用选择器——`rolePicker` / `userPicker` / …，或写明 `model` 的 `recordPicker`（如邮件模板）——给了 `valueField`（`code`）就存它而不是 id，`allowCustom` 允许填写没有对应记录的值；`keyValueMap` 用 `valueType` 说明值是什么（`expression`、`template`）
-- 审批步骤的 `approverSources` 按 HR 管理员常用的顺序给出来源——指定人员，组织里的（上级、部门负责人、HRBP），然后是按群体的（角色、岗位、部门成员）——每个选项带着编辑器判断哪些设置适用所需的信息：`names`（指定人员放在哪个字段，`userIds`）和 `findsOne`（这个来源最多找到一个人）。只对部分步骤生效的设置用 `appliesWhen` 说明：`severalApprovers`（审批模式、`minCount`、`percentage`）或 `approversFoundByRule`（空审批人策略及其角色）；引擎在其他步骤上按同样的规则忽略它，所以编辑器只在适用时显示它
+- 设置项装的是什么，就决定它的类型，编辑器据此给出合适的输入：运行时插值的文字用 `template`（正文加 `multiline`），AviatorScript 用 `expression`，一组文字（收件人、字段名）用 `stringList`，自由 JSON 载荷用 `json`，变量名用 `variableRef`，单据自己的字段用 `recordField`（`targets` 写明字段要指向的模型：单据上的人员是 `Employee` / `UserAccount`，「单据上的部门」是 `Department`），记录用选择器——`rolePicker` / `userPicker` / …，或写明 `model` 的 `recordPicker`（如邮件模板）——给了 `valueField`（`code`）就存它而不是 id，`allowCustom` 允许填写没有对应记录的值；`keyValueMap` 用 `valueType` 说明值是什么（`expression`、`template`）
+- 审批步骤的 `approverSources` 按 HR 管理员常用的顺序给出来源——指定人员，找一个人的（上级、部门负责人、HRBP、单据上的人员），然后是按群体的（角色、岗位、部门成员）——每个选项带着编辑器判断哪些设置适用所需的信息：`names`（指定人员放在哪个字段，`userIds`）和 `findsOne`（这个来源最多找到一个人）。只对部分步骤生效的设置用 `appliesWhen` 说明：`severalApprovers`（审批模式、`minCount`、`percentage`）或 `approversFoundByRule`（空审批人策略及其角色）；引擎在其他步骤上按同样的规则忽略它，所以编辑器只在适用时显示它
 
 `FlowNodeDescriptorRegistry` 只为实际注册为 Spring bean 的执行器列出任务节点，因此像 `QUERY_AI` 和 `ASYNC_TASK` 这类条件执行器仅在其依赖存在时出现。
 

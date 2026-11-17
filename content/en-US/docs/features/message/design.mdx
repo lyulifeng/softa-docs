@@ -134,7 +134,7 @@ A new table is placed by the same two rules: data that belongs to one side only,
 - A missing template, a missing server, a used-up quota, a render that comes out empty: the record is <Status>Failed</Status> with the right marker code and an ERROR log; once the gap is filled, Retry prepares the record afresh and sends it.
 - A retry renders nothing again, chooses no server again and charges no quota again: after the template is changed, an already prepared record still goes out with the old content.
 - A mail whose `templateId` points at a disabled template is sent all the same; `templateCode` finds enabled templates only.
-- SMS: with a country route, the default provider is not used; with neither a route nor a default, the record fails; the template binding's external template id and signature are written into the record.
+- SMS: the provider comes from the country routes only, and a country without a route (or whose routed providers are all disabled) fails, with no default provider; the template binding's external template id and signature are written into the record.
 - SMS: `TENANT` and `PLATFORM` make no difference: the same templates and routes, and the record's owner and quota follow the tenant the send is made for.
 
 ### Failures, retries and recovery

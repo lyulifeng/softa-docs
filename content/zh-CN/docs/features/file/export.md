@@ -68,7 +68,7 @@ File Starter 支持三种导出模式：
 3. 使用剩余路径作为展开字段查询关联模型。
 4. 对于 3+ 级，过程递归：`deptId.companyId.code` → 查询 `Dept`，字段为 `companyId.code` → 查询 `Company`，字段为 `code`。
 5. 解析后的值以完整点分键（如 `deptId.companyId.code`）存入行映射。
-6. 列标题默认为**最后一个字段的 label**（如 `code` 的 label），除非设置了 `customHeader`。
+6. 列标题：模板列设了 `customHeader` 就用它，否则是**最后一个字段的 label**（如 `code` 的 label）。动态导出没有 `customHeader`，带点的列以路径上每个多对一关联的 label 加字段的 label 作标题——`deptId.name` 是 `Department › Name`——指向同一模型的两个关联因此能区分开；一对一这一跳不加：`employeeProfileId.passType` 就是 `Pass Type`，那是本行自己子记录的字段。
 
 **规则：**
 - 最大级联深度：**4 级**（`BaseConstant.CASCADE_LEVEL = 4`）。
@@ -98,7 +98,7 @@ curl -X POST 'http://localhost:8080/export/dynamicExport?modelName=Employee' \
 JSON
 ```
 
-结果 Excel 列：`Name | Department | Dept Manager`
+结果 Excel 列：`Name | Department › Name | Department › Manager › Name`
 
 ### 1. 按模板字段导出
 1. 配置 ExportTemplate 和 ExportTemplateField

@@ -496,6 +496,7 @@ const hrefOf = useApprovalRequestHref();
 
 - 导入 / 导出 tab 与流程
 - 导出对话框「By Template」里的「For re-import」分组：同时有导入权限的人可按导入模板导出，改完用同一模板导回（后端见[数据导出](../../features/file/export)的「5. 按导入模板导出（用于导回）」）
+- 「Dynamic Export」的字段列表里，多对一字段可就地展开，勾选它所指记录的字段（`departmentId.code`），点开时才读取，搜索时读取全部并列在「In related records」下；导出顺序和导出列标题都用完整名称 `Department › Department Code`（后端见[数据导出](../../features/file/export)的「级联字段导出」），服务端按调用人在关联模型上的行范围和敏感字段读取
 - 导出范围规则
 - history-tab 渲染器复用
 

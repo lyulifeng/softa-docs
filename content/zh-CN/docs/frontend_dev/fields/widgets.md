@@ -274,12 +274,18 @@ Quartz cron 表达式，也就是后端调度器运行的写法（cron-starter �
   {/* 每一行：<Field fieldName="fieldName" widgetType="ModelField" /> */}
   <Field fieldName="exportFields" tableView={ExportTemplateFieldsTableView} />
 </ModelFieldSourceProvider>
+
+{/* 导入模板页：每一列都按导入读取的方式指定字段。 */}
+<ModelFieldSourceProvider modelName={modelName} country={country} importColumns>
+  <Field fieldName="importFields" tableView={ImportTemplateFieldsTableView} />
+</ModelFieldSourceProvider>
 ```
 
-- `ModelName` 从模型目录（`SysModel`，列表滚到底时再读下一页）里选一个模型，存它的 `modelName`。只能选目录里有的模型：手输的错名字能保存，要到有人用这条记录时才出错。流程设计器的模型选择框是同一个控件（`ModelCombobox`），在那里还允许输入目录里暂时没有的模型名。
-- `ModelField` 从外层 `ModelFieldSourceProvider` 指定的模型里选一个字段，存字段名；在关联下选的则存点路径。没有 provider 时退回普通文本框：页面没说自己在编辑哪个模型，就不算启用，猜一个会把别的模型的字段当成有效选项给人选。
-- `ModelFieldSourceProvider`（`components/fields/core/model-field-source.tsx`）一次性声明里面的选择器针对哪个模型，所以在独立弹窗里编辑的子表行也知道（context 能穿过弹窗的 portal）。`modelName` 是该模型——还没有时，选择器在选定之前什么都不提供；`country` 把 `ModelField` 收窄到该国家用到的字段；`cascade` 还提供该模型多对一 / 一对一关联下一层的字段（`deptId.code`），每个关联在点开或开始搜索时才读取。`Filters`、`Orders` 构建器也读同一个 provider（见下文）。
-- 只有在服务端会解析这种路径的地方才打开 `cascade`。导出会：筛选、排序靠连表，导出列靠读关联记录。导入模板不打开：导入列用"按哪个键查找关联记录"来指定关联，这个更窄的选择由导入对话框负责。
+- `ModelName` 从模型目录（`SysModel`，列表滚到底时再读下一页）里选一个模型，存它的 `modelName`；输入文字按模型名和标签搜索目录（softa 把这两个字段声明为 `SysModel` 的 `searchName`，之前按 id 搜，什么都搜不到）。只能选目录里有的模型：手输的错名字能保存，要到有人用这条记录时才出错。导入模板页和导出模板页都用它；流程设计器的模型选择框是同一个控件（`ModelCombobox`），在那里还允许输入目录里暂时没有的模型名。
+- `ModelField` 从外层 `ModelFieldSourceProvider` 指定的模型里选一个字段，存字段名；在关联下选的则存点路径。每一行末尾显示字段名；展开的关联下面只显示字段自己的名字，路径由上面关联那一行给出。没有 provider 时退回普通文本框：页面没说自己在编辑哪个模型，就不算启用，猜一个会把别的模型的字段当成有效选项给人选。
+- `ModelFieldSourceProvider`（`components/fields/core/model-field-source.tsx`）一次性声明里面的选择器针对哪个模型，所以在独立弹窗里编辑的子表行也知道（context 能穿过弹窗的 portal）。`modelName` 是该模型——还没有时，选择器在选定之前什么都不提供；`country` 把 `ModelField` 收窄到该国家用到的字段；`cascade` 还提供该模型多对一 / 一对一关联下一层的字段（`deptId.code`），每个关联在点开或开始搜索时才读取；`importColumns` 则按导入读取一列的方式展开关联（`import-column-paths.ts`，依据 softa 的 `ImportFieldPaths`）。`Filters`、`Orders` 构建器也读同一个 provider（见下文）。
+- 只有在服务端会解析这种路径的地方才打开 `cascade`。导出会：筛选、排序靠连表，导出列靠读关联记录。
+- `importColumns` 用于导入模板的列，这些列按"查找一行用的字段"来指定关联：多对一（或多对多，`roleIds.code`）展开为它所指记录的可输入字段，以及组合键会用到的多对一字段（`salaryProfileItemId.country`），键（`MetaField.lookupFields`）排在前面，服务端推荐的那个标"Recommended"；本行自己的一对一子记录展开为它的字段，这些字段是写入而不是查找（它指回本行的引用不列出），子记录里的多对一还能再展开一层到它的可输入键（`empBankAccountId.bank.name`）——最多三段。
 
 ### `Markdown`
 

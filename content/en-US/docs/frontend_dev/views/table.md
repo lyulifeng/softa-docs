@@ -499,6 +499,7 @@ Detailed behavior is covered in [ModelTable](./table), including:
 
 - import/export tabs and flows
 - the export dialog's `For re-import` group under `By Template`: a caller who also holds the import exports into an import template and imports the edited file back with it (backend: "5. Export for re-import (by import template)" in [Data Export](../../features/file/export))
+- `Dynamic Export`'s field list opens each many-to-one in place to the fields of the record it names (`departmentId.code`), read when it is opened, or all of them once a search is typed and listed under "In related records"; Export Order and the column header both use the whole name, `Department › Department Code` (backend: "Cascaded Field Export" in [Data Export](../../features/file/export)), and the server reads the record within the caller's own range and sensitive fields on that model
 - export scope rules
 - history-tab renderer reuse
 

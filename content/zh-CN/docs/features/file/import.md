@@ -141,6 +141,8 @@ curl -X POST http://localhost:8080/import/dynamicImport \
 
 生成的模板使用字段标签作为表头，必填列带样式。
 
+这是模板工作簿的空白形式。要修改已有记录，用 `POST /export/exportByImportTemplate` 把记录导出到同一个工作簿（见[数据导出](./export)的「5. 按导入模板导出（用于导回）」），改完再用这个模板导回。
+
 3. 按模板导入
 
 接口：

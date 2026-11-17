@@ -13,6 +13,8 @@ File Starter supports three export modes:
 
 3. Dynamic export
   - exports without a template by providing fields and filters directly in the request
+4. Export for re-import (by import template)
+  - writes the records into an import template's own workbook, to be edited and imported back through that template; see "5. Export for re-import (by import template)" below
 
 Built-in export supports three scopes:
 - `Selected Rows` uses the current toolbar bulk selection ids
@@ -201,3 +203,31 @@ public class ProductExportHandler implements CustomExportHandler {
 Contract:
 - You may update row values in place.
 - You should not replace row map objects.
+
+### 5. Export for re-import (by import template)
+An import template is the one statement of what an importable sheet of its model looks like: its columns, the key each relation is named by (`departmentId.code`, `jobLevelId.name`), the unique key a row is matched back to its record by, its country and its dropdowns. A dynamic export knows none of that and writes relations by their display names, so its file does not go back in. Exported with the import template, the file is that template's own workbook — the same headers, dropdowns, date formats and instruction sheet as the blank template from Download Template, built by `ImportTemplateWorkbook` — with the records under the header, and it imports back through the same template with no column mapping.
+
+Endpoints (both on the export action; the service also asks for the import of the model, since such a file is for someone who can import it back):
+- `POST /export/listImportTemplates?modelName={model}`: the model's own import templates a file can be exported with for the caller, in display order, each with the file's columns (`header`, `required`), the headers a row is matched by (`matchHeaders`), `ignoreEmpty` and `country`. Empty for a caller who cannot both export and import the model.
+- `POST /export/exportByImportTemplate?modelName={model}&importTemplateId={id}`: body `ExportParams` (filters, orders, effective date; `fields` is ignored, the columns are the template's). Returns the file; `importTemplateId` on the export history records the template.
+
+Offered only for a template a row can be matched back through:
+- `importRule` is `CreateOrUpdate` or `OnlyUpdate`: exported with `OnlyCreate`, each record would be created again;
+- a model without effective-dated versions (`timeline`): a file for re-import does not carry versions yet;
+- a non-empty `uniqueConstraints` with a column for each of its fields; a relation in the key is covered by a lookup column of it (`companyId` by `companyId.code`);
+- no column that names several records (`roleIds.code`): not written yet.
+
+Each column is read so that the cell holds what that column's import takes:
+- a dotted column (`departmentId.code`, `employeeProfileId.passType.name`) by its own path, the key it names the relation by;
+- a bare to-one column (`currency`) by the related row's id (`currency.id`): the import takes the id there, which for a code-as-id master is its code (`SGD`), not the name a display read gives;
+- every other column as an export reads it (`ConvertType.DISPLAY`): an option by its label, a boolean as Yes / No — what the import takes, and what the template's dropdowns list.
+
+The caller's view of the template:
+- columns the caller may not write are already out of it (`ImportService.getImportTemplateDTO`), as they are out of the blank template;
+- an optional column on a sensitive field the caller can never see (`PermissionService.getHiddenSensitiveFields`) is left out of the file — the import reads a file without an optional column and then does not write that field; a required one makes the template unusable for them.
+
+A template written for a country holds only that country's rows, judged as the import judges a row's country: by the company the row names (its first many-to-one onto the company model, `legalEntityId` on an employee; a company anchor joined at query time through its source path), and on the company model by its own `country`. A model naming no company is not filtered.
+
+The workbook's dropdowns and filter cover the records and `5000` rows more (`OptionDropdownHandler`, `ImportSheetStyleHandler.forTemplate(fields, dataRows)`), as a blank template's cover 5000.
+
+Transition: `ExportHistory.importTemplateId` is a new column. Under a `scanner-scope` that covers `io\.softa\.starter\.file\.entity` it is added at boot; an environment with an empty `scanner-scope` adds it by hand before the new jar starts (`ALTER TABLE export_history ADD COLUMN import_template_id BIGINT NULL`, plus its `sys_field` row the way that deployment adds catalog rows).

@@ -14,6 +14,8 @@
 | `user-avatar.tsx` | `UserAvatar` | 状态 / 标识 |
 | `timeline.tsx` | `Timeline` | 展示 |
 | `check-list.tsx` | `CheckList` | 展示 |
+| `safe-html.tsx` | `SafeHtml`、`sanitizeHtml` | 展示（存储的 HTML） |
+| `sandboxed-html-frame.tsx` | `SandboxedHtmlFrame` | 展示（存储的 HTML） |
 | `date-picker.tsx` | `DatePicker` | 输入 |
 | `datetime-picker.tsx` | `DateTimePicker` | 输入 |
 | `time-picker.tsx` | `TimePicker` | 输入 |
@@ -215,11 +217,65 @@ import FullScreenLoading from "@/components/common/full-screen-loading";
 
 ---
 
+## 存储的 HTML
+
+来自服务端的 HTML 字符串只经由下面两个组件进入页面。`src/` 其余位置出现 `dangerouslySetInnerHTML`、动态的 `innerHTML` / `outerHTML` 赋值或 `insertAdjacentHTML` 时 lint 直接报错（`eslint.config.mjs` 里的 `project/html-sink-guard`），新页面不会无意间绕过它们。编辑器只会写出排版标记，但 HTML 字段里的内容并不都来自编辑器：收到的邮件原样保存，API 也接受调用方写入的任何内容。
+
+用哪一个取决于这段 HTML 是什么：
+
+| 这段 HTML 是 | 使用 | 原因 |
+| ------------ | ---- | ---- |
+| 页面自身的内容——在本应用里编写的富文本或模板 | `SafeHtml` | 它应当作为页面的一部分，沿用页面的排版 |
+| 别处写成的一篇完整文档——邮件正文 | `SandboxedHtmlFrame` | 净化能挡住脚本，但只有 iframe 能让外来文档的样式和布局不影响应用 |
+| 以上两者在表格单元格或提示里的摘要 | `htmlToPlainText`（`@/utils/html-text`） | 单行的格子放不下标记，显示文字即可 |
+
+拼装 HTML 时填进去的普通值（标签、姓名）不属于以上任何一种：用 `escapeHtml`（`@/utils/html-text`）转义。
+
+### `SafeHtml`
+
+内容为一段 HTML 字符串的 `<div>`，经 DOMPurify 净化。`html` 传存储的原值；其余属性（`className`、`ref`、`onClick` 等）都交给这个 `<div>`。
+
+```tsx
+<SafeHtml className="tiptap-content" html={record.description} />
+```
+
+保留的内容：排版标记，`class` / `style` / `data-*` 属性（模板占位符用的是 `data-tpl-*`），表格，`data:` 图片，以及链接——`target="_blank"` 会保留，并一律带上 `rel="noopener noreferrer"`。去掉的内容：一切能运行脚本的东西（`<script>`、`on*` 事件属性、`javascript:` 链接、iframe、SVG / MathML），`<style>`（字段值里的样式表会改掉整个应用的样式），以及表单控件。`sanitizeHtml(html)` 是同一套规则的函数形式，供少数需要字符串的调用方使用。
+
+三点行为需要知道：
+
+- **内容出不了自己的框。** 净化决定内容可以是什么，不决定它画在哪里：`style` 和 `class` 会保留，所以存储的内容本可以把自己盖到整个页面上——用 `position: fixed`，或者借用应用自带的遮罩类名，属性过滤分不清这些和正常排版。因此外层容器带有 `contain: layout paint`（它成为内部一切元素的定位基准，固定定位也不例外，并按自己的框裁剪）和 `overflow: auto`，这样确实比框宽的内容（例如表格）可以滚动查看，而不是被截掉。调用方传入的 `style` 关不掉这层约束。贴着框边缘的元素画在自身之外的部分（例如焦点描边）也会被裁掉；需要时给容器留一点内边距。
+- **`html` 不变时，已插入的节点保持原样。** 承载 HTML 的对象一旦换了引用，React 就会重建整段插入内容；`SafeHtml` 让它保持稳定，所以页面可以给里面的节点挂点击（签名槽、模板占位符）并随意重渲染，不会丢掉恰好落在渲染中途的操作。
+- **服务端不输出内容。** 服务端没有 DOM 可用来净化，而服务端响应里的标记在客户端代码运行前就被浏览器解析了。内容在客户端补上——首次渲染时，或页面带着它做了服务端渲染后、水合完成时。
+
+### `SandboxedHtmlFrame`
+
+用于显示外来 HTML 文档的 `<iframe sandbox="" srcDoc>`。空的 sandbox 不授予任何权限：不能运行脚本、不能提交表单、不能让应用跳转，并且拥有独立的源，所以文档读不到 cookie 和本地存储，它的样式也留在 iframe 之内。
+
+```tsx
+<SandboxedHtmlFrame title="Mail body" html={record.bodyHtml} className="h-64 rounded-md border" />
+```
+
+| 属性 | 类型 | 必填 | 说明 |
+| ---- | ---- | ---- | ---- |
+| `html` | `string` | 是 | 原样显示，不做净化，因为里面的东西什么也做不了 |
+| `title` | `string` | 是 | iframe 的无障碍名称 |
+| `className` | `string` | 否 | 高度与边框。iframe 无法把内容高度告诉页面（那需要 sandbox 不给的访问权），所以由调用方定高，文档在里面滚动 |
+
+在里面点击链接，会在 iframe 内打开并仍受同一 sandbox 约束；要求新开标签页的链接不会有反应。远程图片仍会加载，所以发件人能知道邮件被打开过。表单里通过 `HtmlFrame` 字段控件使用它。
+
 ## 输入
 
 三种选择器（`DatePicker` / `DateTimePicker` / `TimePicker`）形态一致：**字符串入、字符串出**。触发器上的文案可用 `displayFormat` 设为另一种展示格式（例如 12 小时制或与区域相关的格式），但机器值始终使用规范机器格式，下游链路（表单值、`FilterCondition`、后端约定）无需了解展示模式。
 
 `triggerWrapper` 可供表单适配器注入 `<FormControl>{button}</FormControl>`，使 react-hook-form 的无障碍挂钩（id / aria-describedby / aria-invalid）作用于触发按钮。独立调用方省略该项时，按钮即作为触发器。
+
+### 输入法按键与 `onKeyDown`
+
+`Input` 与 `Textarea`（`components/ui/`）不会为属于输入法的按键调用 `onKeyDown`。
+
+中日韩用户在输入法组合期间，按键是给输入法的——回车确认候选、方向键移动候选、Esc 取消——但浏览器仍会为每个按键触发 `keydown`。把 `key === "Enter"` 当作“提交”的处理函数因此会把打到一半的聊天消息发出去、把拼音加成一个标签，或在词还没打完时关闭重命名输入框。所以传给 `Input` / `Textarea` 的 `onKeyDown` 不需要、也不应该自己再做判断。
+
+挂在别处的处理函数——原生 `<input>`，或接收文本框冒泡按键的外层元素——调用 `@/utils/ime` 的 `isImeKeyEvent(event)`，为真时直接返回。它判断 `isComposing`，外加回车键上的键码 229：Safari 在确认候选的那次回车上已把组合报告为结束，只有键码还表明是输入法。（229 只在回车上判断，因为安卓软键盘在普通输入时也会报 229。）
 
 ### `DatePicker`
 

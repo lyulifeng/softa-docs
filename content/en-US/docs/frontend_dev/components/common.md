@@ -18,6 +18,8 @@ For the broader taxonomy (where `common/` sits among the five layers), see
 | `user-avatar.tsx` | `UserAvatar` | Status / identity |
 | `timeline.tsx` | `Timeline` | Display |
 | `check-list.tsx` | `CheckList` | Display |
+| `safe-html.tsx` | `SafeHtml`, `sanitizeHtml` | Display (stored HTML) |
+| `sandboxed-html-frame.tsx` | `SandboxedHtmlFrame` | Display (stored HTML) |
 | `date-picker.tsx` | `DatePicker` | Input |
 | `datetime-picker.tsx` | `DateTimePicker` | Input |
 | `time-picker.tsx` | `TimePicker` | Input |
@@ -227,11 +229,65 @@ Vertical checklist. Checked items show a green check + line-through; unchecked s
 
 ---
 
+## Stored HTML
+
+An HTML string from the server reaches the page through one of these two components and nowhere else. Lint rejects `dangerouslySetInnerHTML`, a dynamic `innerHTML` / `outerHTML` assignment and `insertAdjacentHTML` in the rest of `src/` (`project/html-sink-guard` in `eslint.config.mjs`), so a new screen cannot skip them by accident. The editors only produce formatting, but not everything in an HTML field came through an editor: a received email is stored verbatim, and the API accepts whatever a caller writes.
+
+Which one depends on what the HTML is:
+
+| The HTML is | Use | Why |
+| ----------- | --- | --- |
+| Content of the page — rich text or a template written in this application | `SafeHtml` | It should read as part of the page, in the page's typography |
+| A document in its own right, written elsewhere — an email body | `SandboxedHtmlFrame` | Sanitizing keeps script out, but only a frame keeps a foreign document's styles and layout off the application |
+| A summary of either, in a table cell or tooltip | `htmlToPlainText` (`@/utils/html-text`) | A one-line cell cannot hold markup; show the text |
+
+A plain value going into HTML you are assembling (a label, a name) is neither: escape it with `escapeHtml` (`@/utils/html-text`).
+
+### `SafeHtml`
+
+A `<div>` whose content is an HTML string, sanitized with DOMPurify. `html` is the string as stored; every other prop (`className`, `ref`, `onClick`, …) goes to the `<div>`.
+
+```tsx
+<SafeHtml className="tiptap-content" html={record.description} />
+```
+
+What survives: formatting markup, `class` / `style` / `data-*` attributes (template placeholders are `data-tpl-*`), tables, `data:` image sources, and links — `target="_blank"` is kept and always paired with `rel="noopener noreferrer"`. What does not: anything that can run script (`<script>`, `on*` handlers, `javascript:` URLs, frames, SVG / MathML), `<style>` (a stylesheet in a field value would restyle the whole application), and form controls. `sanitizeHtml(html)` is the same rule as a function, for the rare caller that needs the string.
+
+Three behaviours to know:
+
+- **The content cannot leave its box.** Sanitizing decides what the content may be, not where it may be drawn: `style` and `class` survive, so stored content could otherwise place itself over the whole page — with `position: fixed`, or with the application's own overlay classes, which no attribute filter can tell from formatting. The wrapper therefore carries `contain: layout paint` (it is the containing block of everything inside, fixed-position included, and clips to its box) and `overflow: auto`, so content that is legitimately wider than the box, such as a table, scrolls instead of being cut off. A caller's `style` cannot switch the containment off. Something drawn just outside an element at the box's edge — a focus ring — is clipped too; give the wrapper a little padding where that matters.
+- **The injected markup stays put while `html` is unchanged.** React rebuilds injected HTML whenever the object carrying it changes identity; `SafeHtml` keeps it stable, so a page can attach clicks to nodes inside (signature slots, template placeholders) and re-render freely without losing an interaction that lands mid-render.
+- **Nothing is rendered on the server.** There is no DOM to sanitize with there, and markup in a server response is parsed by the browser before client code runs. The content is filled in on the client — on first render, or right after hydration when the page was server-rendered with it.
+
+### `SandboxedHtmlFrame`
+
+An `<iframe sandbox="" srcDoc>` for an HTML document that is not ours. The empty sandbox grants nothing: no script, no forms, no navigating the application, and an origin of its own, so the document reads no cookies or storage and its styles stay inside the frame.
+
+```tsx
+<SandboxedHtmlFrame title="Mail body" html={record.bodyHtml} className="h-64 rounded-md border" />
+```
+
+| Prop | Type | Required | Notes |
+| ---- | ---- | -------- | ----- |
+| `html` | `string` | Yes | Shown as-is; not sanitized, because nothing in it can act |
+| `title` | `string` | Yes | The frame's accessible name |
+| `className` | `string` | No | Height and border. The frame cannot report its content height to the page — that needs access the sandbox withholds — so the caller sizes it and the document scrolls inside |
+
+A link clicked inside loads within the frame, under the same sandbox, and one that asks for a new tab does nothing. Remote images still load, so a sender can tell a message was opened. Forms use it through the `HtmlFrame` field widget.
+
 ## Input
 
 All three pickers (`DatePicker` / `DateTimePicker` / `TimePicker`) share the same shape: **string in, string out**. The trigger label can be rendered in a different display format (e.g. 12-hour or locale-specific) via `displayFormat`, but the machine value always uses the canonical machine format so downstream pipelines (form values, `FilterCondition`, backend contract) never need to know about display mode.
 
 The `triggerWrapper` prop lets a form adapter inject `<FormControl>{button}</FormControl>` so react-hook-form's a11y wiring (id / aria-describedby / aria-invalid) reaches the trigger button. Standalone callers omit it and the button is the trigger directly.
+
+### IME key presses and `onKeyDown`
+
+`Input` and `Textarea` (`components/ui/`) do not call `onKeyDown` for a key press that belongs to an input method.
+
+While a CJK user is composing, the keys go to the IME — Enter confirms the candidate, arrows move through the list, Escape cancels — yet the browser still fires `keydown` for each. A handler reading `key === "Enter"` as "submit" then sends a half-composed chat message, adds the pinyin as a tag, or closes a rename field mid-word. So an `onKeyDown` passed to `Input` / `Textarea` needs no check of its own, and should not add one.
+
+A handler on anything else — a raw `<input>`, a wrapper element that catches keys bubbling up from a text box — calls `isImeKeyEvent(event)` from `@/utils/ime` and returns early when it is true. That is `isComposing`, plus key code 229 on Enter: Safari reports the composition as already over on the confirming Enter, and only the key code still says IME. (229 is checked on Enter alone because Android soft keyboards report it for ordinary typing.)
 
 ### `DatePicker`
 

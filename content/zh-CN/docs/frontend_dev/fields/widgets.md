@@ -15,8 +15,8 @@
 
 | FieldType     | 默认行为                       | 支持的 WidgetType                                                              |
 | ------------- | ------------------------------ | ------------------------------------------------------------------------------- |
-| `String`      | 单行文本输入                   | `URL`, `Email`, `Phone`, `PlainText`, `RichText`, `TemplateEditor`, `Markdown`, `Code`, `Color`, `yyyy-MM`, `MM-dd`, `CronEditor`, `ModelName`, `ModelField` |
-| `Text`        | 多行文本域                     | `RichText`, `Markdown`, `Code`, `TemplateEditor`                                  |
+| `String`      | 单行文本输入                   | `URL`, `Email`, `Phone`, `PlainText`, `RichText`, `TemplateEditor`, `HtmlFrame`, `Markdown`, `Code`, `Color`, `yyyy-MM`, `MM-dd`, `CronEditor`, `ModelName`, `ModelField` |
+| `Text`        | 多行文本域                     | `RichText`, `Markdown`, `Code`, `TemplateEditor`, `HtmlFrame`                  |
 | `MultiString` | 标签式逗号/回车输入            | -                                                                                 |
 | `Integer`     | 数字输入                       | `Monetary`, `Percentage`, `Slider`                                                |
 | `Long`        | 数字输入                       | `Monetary`, `Percentage`, `Slider`                                                |
@@ -85,11 +85,25 @@
 - **缩放** — 点击图片选中后，可拖动四角任一控制点调整大小。宽度保存在节点上；高度通过 `height: auto` 等比缩放。
 - **序列化** — 图片在 HTML 中使用内联样式以便携带：`<img src="..." width="400" style="width: 400px; max-width: 100%; height: auto;">`。未显式指定宽度的图片使用 `style="max-width: 100%; height: auto;"`。
 
-两级懒加载：只读模式直接渲染原始 HTML，不加载编辑器；编辑模式再懒加载完整 Tiptap 编辑器。
+两级懒加载：只读模式直接渲染已存储的 HTML，不加载编辑器；编辑模式再懒加载完整 Tiptap 编辑器。
+
+只读渲染经过 `SafeHtml`（见 [common](../components/common)）净化：编辑器只会写出排版标记，但这个字段也可能经 API 直接写入。在表格单元格里，值显示为一行纯文本，不渲染标记。
 
 ```tsx
 <Field fieldName="content" widgetType="RichText" />
 ```
+
+`RichText` 用于在本应用里编写的内容。来自外部的 HTML 文档（例如邮件正文）请用 `HtmlFrame`。
+
+### `HtmlFrame`
+
+把存放外部 HTML 文档的字段显示在隔离的 iframe 里（`SandboxedHtmlFrame`）。只用于展示，无论表单处于什么模式都没有编辑态。仅前端可用：在页面上逐个声明，不存入 `sys_field.widget_type`。
+
+```tsx
+<Field fieldName="bodyHtml" widgetType="HtmlFrame" />
+```
+
+文档不能运行脚本、提交表单、让应用跳转，也不能影响 iframe 之外的样式，所以陌生发件人的邮件可以放心打开。iframe 以固定高度起始，可拖动下边缘拉高（它无法按内容自适应高度）；值为空时显示 `—`。邮件发送 / 接收记录页使用它。
 
 ### `TemplateEditor`
 
@@ -105,7 +119,7 @@
 - **关联字段展开** — 将 `ManyToOne` / `OneToOne` 关联展开一层，插入嵌套路径（如 `department.name`）
 - **循环表格** — 将 `OneToMany` / `ManyToMany` 关联以可选列的循环表格插入。HTML 输出：`<table data-tpl-loop="relationField" data-tpl-model="RelatedModel">` 及 `<th data-tpl-field="col">` 表头
 - **工具栏动作** — 「插入字段」「插入变量」「插入签名」可按 widget props 分别配置
-- **两级懒加载** — 与 `RichText` 相同：只读仅渲染 HTML；编辑时再懒加载完整编辑器
+- **两级懒加载** — 与 `RichText` 相同：只读仅渲染已存储的 HTML（经 `SafeHtml` 净化）；编辑时再懒加载完整编辑器
 - **已保存记录预览** — `DocumentTemplate` 富文本记录可在新标签打开 `/admin/document-template/[id]/preview`，左侧大纲可在变量与签名槽之间跳转，`Preview As` 可在 `All`、`Sender`、`Receiver` 间切换，点击文档预览中的高亮占位可填写自定义变量并在本地采集签名
 
 ```tsx

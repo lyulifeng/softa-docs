@@ -15,8 +15,8 @@ Related docs:
 
 | FieldType     | Default behavior               | Supported WidgetType                                                              |
 | ------------- | ------------------------------ | --------------------------------------------------------------------------------- |
-| `String`      | single-line input              | `URL`, `Email`, `Phone`, `PlainText`, `RichText`, `TemplateEditor`, `Markdown`, `Code`, `Color`, `yyyy-MM`, `MM-dd`, `CronEditor`, `ModelName`, `ModelField` |
-| `Text`        | multiline textarea             | `RichText`, `Markdown`, `Code`, `TemplateEditor`                                  |
+| `String`      | single-line input              | `URL`, `Email`, `Phone`, `PlainText`, `RichText`, `TemplateEditor`, `HtmlFrame`, `Markdown`, `Code`, `Color`, `yyyy-MM`, `MM-dd`, `CronEditor`, `ModelName`, `ModelField` |
+| `Text`        | multiline textarea             | `RichText`, `Markdown`, `Code`, `TemplateEditor`, `HtmlFrame`                  |
 | `MultiString` | tag-style comma/enter input    | -                                                                                 |
 | `Integer`     | numeric input                  | `Monetary`, `Percentage`, `Slider`                                                |
 | `Long`        | numeric input                  | `Monetary`, `Percentage`, `Slider`                                                |
@@ -85,11 +85,25 @@ Image handling:
 - **Resize** — click an image to select it, then drag any of the four corner handles to resize. Width is stored on the node; height scales proportionally via `height: auto`.
 - **Serialization** — images are stored in HTML with inline styles for portability: `<img src="..." width="400" style="width: 400px; max-width: 100%; height: auto;">`. Images without an explicit width get `style="max-width: 100%; height: auto;"`.
 
-Two-level lazy loading: read-only mode renders raw HTML without loading the editor; edit mode lazy-loads the full Tiptap editor.
+Two-level lazy loading: read-only mode renders the stored HTML without loading the editor; edit mode lazy-loads the full Tiptap editor.
+
+Read-only rendering goes through `SafeHtml` (see [common](../components/common)), which sanitizes it: the editor only writes formatting, but the field can also be written through the API. In a table cell the value shows as its text on one line, not as markup.
 
 ```tsx
 <Field fieldName="content" widgetType="RichText" />
 ```
+
+Use `RichText` for content written in this application. For an HTML document that came from outside — an email body — use `HtmlFrame`.
+
+### `HtmlFrame`
+
+Shows a field holding an HTML document written elsewhere, inside a sandboxed frame (`SandboxedHtmlFrame`). Display only — there is no edit mode, whatever mode the form is in. Frontend-only: declared per page, not stored in `sys_field.widget_type`.
+
+```tsx
+<Field fieldName="bodyHtml" widgetType="HtmlFrame" />
+```
+
+The document cannot run script, submit forms, navigate the application, or style anything outside its frame, so a message from an unknown sender is safe to open. The frame starts at a fixed height and can be dragged taller from its bottom edge (it cannot size itself to its content); an empty value shows `—`. Used by the mail send / receive record pages.
 
 ### `TemplateEditor`
 
@@ -105,7 +119,7 @@ Features:
 - **Relation field expansion** — expand `ManyToOne` / `OneToOne` relations one level to insert nested paths (e.g. `department.name`)
 - **Loop tables** — insert `OneToMany` / `ManyToMany` relations as loop tables with selectable columns. HTML output: `<table data-tpl-loop="relationField" data-tpl-model="RelatedModel">` with `<th data-tpl-field="col">` headers
 - **Toolbar actions** — `Insert Field`, `Insert Variable`, and `Insert Signature`, each individually configurable via widget props
-- **Two-level lazy loading** — same as `RichText`: read-only renders HTML without Tiptap; edit mode lazy-loads the full editor
+- **Two-level lazy loading** — same as `RichText`: read-only renders the stored HTML (sanitized by `SafeHtml`) without Tiptap; edit mode lazy-loads the full editor
 - **Saved-record preview** — `DocumentTemplate` RichText records can open `/admin/document-template/[id]/preview` in a new tab, use the left-side outline to jump between variables and signature slots, switch `Preview As` between `All`, `Sender`, and `Receiver`, and click highlighted placeholders in the document preview to fill custom variables and capture signatures locally
 
 ```tsx

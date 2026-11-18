@@ -68,7 +68,7 @@ File Starter 支持三种导出模式：
 3. 使用剩余路径作为展开字段查询关联模型。
 4. 对于 3+ 级，过程递归：`deptId.companyId.code` → 查询 `Dept`，字段为 `companyId.code` → 查询 `Company`，字段为 `code`。
 5. 解析后的值以完整点分键（如 `deptId.companyId.code`）存入行映射。
-6. 列标题：模板列设了 `customHeader` 就用它，否则是**最后一个字段的 label**（如 `code` 的 label）。动态导出没有 `customHeader`，带点的列以路径上每个多对一关联的 label 加字段的 label 作标题——`deptId.name` 是 `Department › Name`——指向同一模型的两个关联因此能区分开；一对一这一跳不加：`employeeProfileId.passType` 就是 `Pass Type`，那是本行自己子记录的字段。
+6. 列标题：模板列设了 `customHeader` 就用它；没设时——以及动态导出的每一列，动态导出没有 `customHeader`——以路径上每个多对一关联的 label 加字段的 label 作标题：`deptId.name` 是 `Department › Name`，`employeeId.departmentId.name` 是 `Employee › Department › Name`。只用最后一个字段的 label，指向同一模型的两个关联（经理的工号和 HRBP 的工号）就会同名。一对一这一跳不加：`employeeProfileId.passType` 就是 `Pass Type`，那是本行自己子记录的字段。两种导出用同一条规则（`ExportColumnHeaders`）；某列必须另起名字（例如对外的固定格式）时，在 `customHeader` 里写明。
 
 **规则：**
 - 最大级联深度：**4 级**（`BaseConstant.CASCADE_LEVEL = 4`）。
@@ -80,10 +80,12 @@ File Starter 支持三种导出模式：
 
 ExportTemplateField 配置：
 ```
-fieldName: "name"                customHeader: null           sequence: 1
-fieldName: "deptId.name"         customHeader: "Department"   sequence: 2
-fieldName: "deptId.managerId.name" customHeader: "Dept Manager" sequence: 3
+fieldName: "name"                  customHeader: null           sequence: 1
+fieldName: "deptId.name"           customHeader: "Department"   sequence: 2
+fieldName: "deptId.managerId.name" customHeader: null           sequence: 3
 ```
+
+结果 Excel 列：`Name | Department | Department › Manager › Name`
 
 **示例 — 带级联字段的动态导出：**
 ```bash

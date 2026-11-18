@@ -15,8 +15,8 @@ Related docs:
 
 | FieldType     | Default behavior               | Supported WidgetType                                                              |
 | ------------- | ------------------------------ | --------------------------------------------------------------------------------- |
-| `String`      | single-line input              | `URL`, `Email`, `Phone`, `PlainText`, `RichText`, `TemplateEditor`, `HtmlDocument`, `Markdown`, `Code`, `Color`, `yyyy-MM`, `MM-dd`, `CronEditor`, `ModelName`, `ModelField` |
-| `Text`        | multiline textarea             | `RichText`, `Markdown`, `Code`, `TemplateEditor`, `HtmlDocument`                  |
+| `String`      | single-line input              | `URL`, `Email`, `Phone`, `PlainText`, `RichText`, `TemplateEditor`, `HtmlFrame`, `Markdown`, `Code`, `Color`, `yyyy-MM`, `MM-dd`, `CronEditor`, `ModelName`, `ModelField` |
+| `Text`        | multiline textarea             | `RichText`, `Markdown`, `Code`, `TemplateEditor`, `HtmlFrame`                  |
 | `MultiString` | tag-style comma/enter input    | -                                                                                 |
 | `Integer`     | numeric input                  | `Monetary`, `Percentage`, `Slider`                                                |
 | `Long`        | numeric input                  | `Monetary`, `Percentage`, `Slider`                                                |
@@ -93,14 +93,14 @@ Read-only rendering goes through `SafeHtml` (see [common](../components/common))
 <Field fieldName="content" widgetType="RichText" />
 ```
 
-Use `RichText` for content written in this application. For an HTML document that came from outside — an email body — use `HtmlDocument`.
+Use `RichText` for content written in this application. For an HTML document that came from outside — an email body — use `HtmlFrame`.
 
-### `HtmlDocument`
+### `HtmlFrame`
 
 Shows a field holding an HTML document written elsewhere, inside a sandboxed frame (`SandboxedHtmlFrame`). Display only — there is no edit mode, whatever mode the form is in. Frontend-only: declared per page, not stored in `sys_field.widget_type`.
 
 ```tsx
-<Field fieldName="bodyHtml" widgetType="HtmlDocument" />
+<Field fieldName="bodyHtml" widgetType="HtmlFrame" />
 ```
 
 The document cannot run script, submit forms, navigate the application, or style anything outside its frame, so a message from an unknown sender is safe to open. The frame starts at a fixed height and can be dragged taller from its bottom edge (it cannot size itself to its content); an empty value shows `—`. Used by the mail send / receive record pages.

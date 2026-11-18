@@ -15,8 +15,8 @@
 
 | FieldType     | 默认行为                       | 支持的 WidgetType                                                              |
 | ------------- | ------------------------------ | ------------------------------------------------------------------------------- |
-| `String`      | 单行文本输入                   | `URL`, `Email`, `Phone`, `PlainText`, `RichText`, `TemplateEditor`, `HtmlDocument`, `Markdown`, `Code`, `Color`, `yyyy-MM`, `MM-dd`, `CronEditor`, `ModelName`, `ModelField` |
-| `Text`        | 多行文本域                     | `RichText`, `Markdown`, `Code`, `TemplateEditor`, `HtmlDocument`                  |
+| `String`      | 单行文本输入                   | `URL`, `Email`, `Phone`, `PlainText`, `RichText`, `TemplateEditor`, `HtmlFrame`, `Markdown`, `Code`, `Color`, `yyyy-MM`, `MM-dd`, `CronEditor`, `ModelName`, `ModelField` |
+| `Text`        | 多行文本域                     | `RichText`, `Markdown`, `Code`, `TemplateEditor`, `HtmlFrame`                  |
 | `MultiString` | 标签式逗号/回车输入            | -                                                                                 |
 | `Integer`     | 数字输入                       | `Monetary`, `Percentage`, `Slider`                                                |
 | `Long`        | 数字输入                       | `Monetary`, `Percentage`, `Slider`                                                |
@@ -93,14 +93,14 @@
 <Field fieldName="content" widgetType="RichText" />
 ```
 
-`RichText` 用于在本应用里编写的内容。来自外部的 HTML 文档（例如邮件正文）请用 `HtmlDocument`。
+`RichText` 用于在本应用里编写的内容。来自外部的 HTML 文档（例如邮件正文）请用 `HtmlFrame`。
 
-### `HtmlDocument`
+### `HtmlFrame`
 
 把存放外部 HTML 文档的字段显示在隔离的 iframe 里（`SandboxedHtmlFrame`）。只用于展示，无论表单处于什么模式都没有编辑态。仅前端可用：在页面上逐个声明，不存入 `sys_field.widget_type`。
 
 ```tsx
-<Field fieldName="bodyHtml" widgetType="HtmlDocument" />
+<Field fieldName="bodyHtml" widgetType="HtmlFrame" />
 ```
 
 文档不能运行脚本、提交表单、让应用跳转，也不能影响 iframe 之外的样式，所以陌生发件人的邮件可以放心打开。iframe 以固定高度起始，可拖动下边缘拉高（它无法按内容自适应高度）；值为空时显示 `—`。邮件发送 / 接收记录页使用它。

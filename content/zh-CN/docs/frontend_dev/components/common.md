@@ -241,8 +241,9 @@ import FullScreenLoading from "@/components/common/full-screen-loading";
 
 保留的内容：排版标记，`class` / `style` / `data-*` 属性（模板占位符用的是 `data-tpl-*`），表格，`data:` 图片，以及链接——`target="_blank"` 会保留，并一律带上 `rel="noopener noreferrer"`。去掉的内容：一切能运行脚本的东西（`<script>`、`on*` 事件属性、`javascript:` 链接、iframe、SVG / MathML），`<style>`（字段值里的样式表会改掉整个应用的样式），以及表单控件。`sanitizeHtml(html)` 是同一套规则的函数形式，供少数需要字符串的调用方使用。
 
-两点行为需要知道：
+三点行为需要知道：
 
+- **内容出不了自己的框。** 净化决定内容可以是什么，不决定它画在哪里：`style` 和 `class` 会保留，所以存储的内容本可以把自己盖到整个页面上——用 `position: fixed`，或者借用应用自带的遮罩类名，属性过滤分不清这些和正常排版。因此外层容器带有 `contain: layout paint`（它成为内部一切元素的定位基准，固定定位也不例外，并按自己的框裁剪）和 `overflow: auto`，这样确实比框宽的内容（例如表格）可以滚动查看，而不是被截掉。调用方传入的 `style` 关不掉这层约束。贴着框边缘的元素画在自身之外的部分（例如焦点描边）也会被裁掉；需要时给容器留一点内边距。
 - **`html` 不变时，已插入的节点保持原样。** 承载 HTML 的对象一旦换了引用，React 就会重建整段插入内容；`SafeHtml` 让它保持稳定，所以页面可以给里面的节点挂点击（签名槽、模板占位符）并随意重渲染，不会丢掉恰好落在渲染中途的操作。
 - **服务端不输出内容。** 服务端没有 DOM 可用来净化，而服务端响应里的标记在客户端代码运行前就被浏览器解析了。内容在客户端补上——首次渲染时，或页面带着它做了服务端渲染后、水合完成时。
 
@@ -260,7 +261,7 @@ import FullScreenLoading from "@/components/common/full-screen-loading";
 | `title` | `string` | 是 | iframe 的无障碍名称 |
 | `className` | `string` | 否 | 高度与边框。iframe 无法把内容高度告诉页面（那需要 sandbox 不给的访问权），所以由调用方定高，文档在里面滚动 |
 
-在里面点击链接，会在 iframe 内打开并仍受同一 sandbox 约束；要求新开标签页的链接不会有反应。远程图片仍会加载，所以发件人能知道邮件被打开过。表单里通过 `HtmlDocument` 字段控件使用它。
+在里面点击链接，会在 iframe 内打开并仍受同一 sandbox 约束；要求新开标签页的链接不会有反应。远程图片仍会加载，所以发件人能知道邮件被打开过。表单里通过 `HtmlFrame` 字段控件使用它。
 
 ## 输入
 

@@ -253,8 +253,9 @@ A `<div>` whose content is an HTML string, sanitized with DOMPurify. `html` is t
 
 What survives: formatting markup, `class` / `style` / `data-*` attributes (template placeholders are `data-tpl-*`), tables, `data:` image sources, and links — `target="_blank"` is kept and always paired with `rel="noopener noreferrer"`. What does not: anything that can run script (`<script>`, `on*` handlers, `javascript:` URLs, frames, SVG / MathML), `<style>` (a stylesheet in a field value would restyle the whole application), and form controls. `sanitizeHtml(html)` is the same rule as a function, for the rare caller that needs the string.
 
-Two behaviours to know:
+Three behaviours to know:
 
+- **The content cannot leave its box.** Sanitizing decides what the content may be, not where it may be drawn: `style` and `class` survive, so stored content could otherwise place itself over the whole page — with `position: fixed`, or with the application's own overlay classes, which no attribute filter can tell from formatting. The wrapper therefore carries `contain: layout paint` (it is the containing block of everything inside, fixed-position included, and clips to its box) and `overflow: auto`, so content that is legitimately wider than the box, such as a table, scrolls instead of being cut off. A caller's `style` cannot switch the containment off. Something drawn just outside an element at the box's edge — a focus ring — is clipped too; give the wrapper a little padding where that matters.
 - **The injected markup stays put while `html` is unchanged.** React rebuilds injected HTML whenever the object carrying it changes identity; `SafeHtml` keeps it stable, so a page can attach clicks to nodes inside (signature slots, template placeholders) and re-render freely without losing an interaction that lands mid-render.
 - **Nothing is rendered on the server.** There is no DOM to sanitize with there, and markup in a server response is parsed by the browser before client code runs. The content is filled in on the client — on first render, or right after hydration when the page was server-rendered with it.
 
@@ -272,7 +273,7 @@ An `<iframe sandbox="" srcDoc>` for an HTML document that is not ours. The empty
 | `title` | `string` | Yes | The frame's accessible name |
 | `className` | `string` | No | Height and border. The frame cannot report its content height to the page — that needs access the sandbox withholds — so the caller sizes it and the document scrolls inside |
 
-A link clicked inside loads within the frame, under the same sandbox, and one that asks for a new tab does nothing. Remote images still load, so a sender can tell a message was opened. Forms use it through the `HtmlDocument` field widget.
+A link clicked inside loads within the frame, under the same sandbox, and one that asks for a new tab does nothing. Remote images still load, so a sender can tell a message was opened. Forms use it through the `HtmlFrame` field widget.
 
 ## Input
 

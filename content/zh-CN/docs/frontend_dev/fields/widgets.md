@@ -282,7 +282,7 @@ Quartz cron 表达式，也就是后端调度器运行的写法（cron-starter �
 <Field fieldName="modelName" widgetType="ModelName" />
 
 {/* 导出模板页：筛选、排序、导出列都针对上面选的模型。 */}
-<ModelFieldSourceProvider modelName={modelName} cascade>
+<ModelFieldSourceProvider modelName={modelName} cascade={2}>
   <Field fieldName="filters" />
   <Field fieldName="orders" />
   {/* 每一行：<Field fieldName="fieldName" widgetType="ModelField" /> */}
@@ -297,8 +297,8 @@ Quartz cron 表达式，也就是后端调度器运行的写法（cron-starter �
 
 - `ModelName` 从模型目录（`SysModel`，列表滚到底时再读下一页）里选一个模型，存它的 `modelName`；输入文字按模型名和标签搜索目录（softa 把这两个字段声明为 `SysModel` 的 `searchName`，之前按 id 搜，什么都搜不到）。只能选目录里有的模型：手输的错名字能保存，要到有人用这条记录时才出错。导入模板页和导出模板页都用它；流程设计器的模型选择框是同一个控件（`ModelCombobox`），在那里还允许输入目录里暂时没有的模型名。
 - `ModelField` 从外层 `ModelFieldSourceProvider` 指定的模型里选一个字段，存字段名；在关联下选的则存点路径。每一行末尾显示字段名；展开的关联下面只显示字段自己的名字，路径由上面关联那一行给出。没有 provider 时退回普通文本框：页面没说自己在编辑哪个模型，就不算启用，猜一个会把别的模型的字段当成有效选项给人选。
-- `ModelFieldSourceProvider`（`components/fields/core/model-field-source.tsx`）一次性声明里面的选择器针对哪个模型，所以在独立弹窗里编辑的子表行也知道（context 能穿过弹窗的 portal）。`modelName` 是该模型——还没有时，选择器在选定之前什么都不提供；`country` 把 `ModelField` 收窄到该国家用到的字段；`cascade` 还提供该模型多对一 / 一对一关联下一层的字段（`deptId.code`），每个关联在点开或开始搜索时才读取；`importColumns` 则按导入读取一列的方式展开关联（`import-column-paths.ts`，依据 softa 的 `ImportFieldPaths`）。`Filters`、`Orders` 构建器也读同一个 provider（见下文）。
-- 只有在服务端会解析这种路径的地方才打开 `cascade`。导出会：筛选、排序靠连表，导出列靠读关联记录。
+- `ModelFieldSourceProvider`（`components/fields/core/model-field-source.tsx`）一次性声明里面的选择器针对哪个模型，所以在独立弹窗里编辑的子表行也知道（context 能穿过弹窗的 portal）。`modelName` 是该模型——还没有时，选择器在选定之前什么都不提供；`country` 把 `ModelField` 收窄到该国家用到的字段；`cascade` 还提供该模型多对一 / 一对一关联下的字段，层数由它的值决定：`1` 是关联自己的字段（`deptId.code`），`2` 再加上关联里面那个关联的字段（`employeeId.departmentId.name`）。每个关联在点开或开始搜索时才读取——两层时一搜索就把两层内的关联都读一遍，从 Employee 出发约三十个模型（一层时十来个），每个模型只读一次（元数据按模型缓存，整个会话有效）；`importColumns` 则按导入读取一列的方式展开关联（`import-column-paths.ts`，依据 softa 的 `ImportFieldPaths`）。`Filters`、`Orders` 构建器也读同一个 provider（见下文）。
+- 只有在服务端会解析这种路径的地方才打开 `cascade`。导出会：筛选、排序靠连表，导出列靠读关联记录。导出模板页要两层（`ExportTemplateFieldSource`）：导出模板是留给报表和对外固定格式的导出，请假报表要的员工部门就是关联的关联。流程数据节点的筛选只要一层。
 - `importColumns` 用于导入模板的列，这些列按"查找一行用的字段"来指定关联：多对一（或多对多，`roleIds.code`）展开为它所指记录的可输入字段，以及组合键会用到的多对一字段（`salaryProfileItemId.country`），键（`MetaField.lookupFields`）排在前面，服务端推荐的那个标"Recommended"；本行自己的一对一子记录展开为它的字段，这些字段是写入而不是查找（它指回本行的引用不列出），子记录里的多对一还能再展开一层到它的可输入键（`empBankAccountId.bank.name`）——最多三段。
 
 ### `Markdown`
@@ -858,7 +858,7 @@ JSON 编辑器 widget props：
 <Field fieldName="filters" />
 ```
 
-规则针对字段所属模型的字段；放在 `ModelFieldSourceProvider` 里时则针对它指定的模型，未指定时不提供字段——导出模板的 `filters` 针对的是它导出的模型，而不是 `ExportTemplate`。provider 开了 `cascade` 时，规则还可以选多对一 / 一对一关联下一层的字段，存为点路径；已保存规则用到的关联会随字段一起读取，所以按标签显示，读完之前构建器不能打开。流程的数据节点（Get data、Query records、Update data、Delete data）的 `filters` 也这样展开关联，因为它们按节点模型做查询。`allowedFields` 里的点路径（`employeeId.departmentId`）只展开这些关联、只列出点名的字段，有没有 provider 都一样：流程规则只提供后端为它列出的路径。只列条件能读的字段：没有级联的 `dynamic` 字段没有列，查询和内存规则都判断不了它；经关联走到的字段必须是存储字段——后端只在条件直接写级联字段名时才改写成路径（`isFilterablePathLeaf`）。
+规则针对字段所属模型的字段；放在 `ModelFieldSourceProvider` 里时则针对它指定的模型，未指定时不提供字段——导出模板的 `filters` 针对的是它导出的模型，而不是 `ExportTemplate`。provider 开了 `cascade` 时，规则还可以选多对一 / 一对一关联下的字段，层数由 `cascade` 决定，存为点路径（导出模板两层，如 `employeeId.departmentId.name`）；已保存规则用到的关联会随字段一起读取，所以按标签显示，读完之前构建器不能打开。Advanced Filter 弹窗的说明会写明关联能展开几层。流程的数据节点（Get data、Query records、Update data、Delete data）的 `filters` 也这样展开关联，只展开一层，因为它们按节点模型做查询。`allowedFields` 里的点路径（`employeeId.departmentId`）只展开这些关联、只列出点名的字段，有没有 provider 都一样：流程规则只提供后端为它列出的路径。只列条件能读的字段：没有级联的 `dynamic` 字段没有列，查询和内存规则都判断不了它；经关联走到的字段必须是存储字段——后端只在条件直接写级联字段名时才改写成路径（`isFilterablePathLeaf`）。
 
 `Filters` widget props：
 
@@ -874,7 +874,7 @@ JSON 编辑器 widget props：
 <Field fieldName="orders" />
 ```
 
-字段来源与 `Filters` 构建器相同：字段所属模型，或 `ModelFieldSourceProvider` 指定的模型；开了 `cascade` 时可以按多对一 / 一对一关联下一层的字段排序（`deptId.code`），查询会连表。
+字段来源与 `Filters` 构建器相同：字段所属模型，或 `ModelFieldSourceProvider` 指定的模型；开了 `cascade` 时可以按多对一 / 一对一关联下的字段排序（`deptId.code`；导出模板可到两层，如 `employeeId.departmentId.name`），查询会连表。
 
 `Orders` widget props：
 

@@ -41,7 +41,7 @@ messageService.sendMail(welcome);
 
 // A template that names a declared set of variables: pass the object, not a map.
 messageService.sendMail(SendMailDTO.ofTemplate(List.of("alice@example.com"), "flow.approved",
-        new ApprovalNoticeVariables(subject, content, flowName, recordCode, link), MessageScope.TENANT));
+        new ApprovalNoticeVariables(subject, summary, content, flowName, recordCode, link), MessageScope.TENANT));
 
 // A template bound to a model: name the record, its fields are read when the send is accepted.
 messageService.sendMail(SendMailDTO.ofRecord(List.of("alice@example.com"), "order.confirmed", orderId, MessageScope.TENANT));

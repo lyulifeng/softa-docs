@@ -93,7 +93,7 @@ Read-only rendering goes through `SafeHtml` (see [common](../components/common))
 <Field fieldName="content" widgetType="RichText" />
 ```
 
-Use `RichText` for content written in this application. For an HTML document that came from outside — an email body — use `HtmlFrame`.
+Use `RichText` for content written in this application and shown as written. For a template — text the server fills with values before it is sent or printed — use `TemplateEditor`: a rich-text editor has no notion of a placeholder, a loop or a condition, and rewrites hand-written template tags (a `{% for %}` around a table row is moved out of the table, a `>` in a condition comes back as `&gt;`). For an HTML document that came from outside — a received email body — use `HtmlFrame`.
 
 ### `HtmlFrame`
 
@@ -107,19 +107,30 @@ The document cannot run script, submit forms, navigate the application, or style
 
 ### `TemplateEditor`
 
-Tiptap-based template editor for designing email templates, document templates, and other content intended for backend rendering and PDF generation.
+Tiptap-based template editor for content the backend fills in and renders: mail template bodies (`MailTemplate.bodyHtml`, `PlatformMailTemplate.bodyHtml`) and document templates (`DocumentTemplate.htmlTemplate`, rendered to PDF). The toolbar is `RichText`'s; on top of it the editor inserts template blocks.
+
+**Source.** What can be inserted comes from the template's source, one of two kinds:
+
+| Source | Widget prop | Offers | Read from |
+| --- | --- | --- | --- |
+| A model | `modelName` | The model's fields; a to-one relation opens to the related record's fields (`departmentId.name`); a to-many relation is a loop table | Model metadata |
+| A declared set of variables | `variablesName` | The variables the backend declares in code (`@TemplateVariables`), with label, description and sample value; a nested set opens to its fields (`buyer.fullName`); a list of records is a loop table | `GET /TemplateVariables/get?name=` |
+
+A document template always has a model. A mail template names at most one of the two on its own record and may name neither; the editor then still works as a rich-text editor, and Insert Field says there is nothing to insert. The "Insert variable" button over a plain-text input — a mail subject, a mail's plain-text body, an SMS content — uses the same list and inserts plain `{{ name }}` text; while the input is hidden by its condition (the plain-text body in a body mode that does not send it), the button is hidden with it.
 
 Storage format: HTML with `data-tpl-*` attributes for template-specific nodes. The editor round-trips between stored HTML and Tiptap JSON automatically via custom `parseHTML` / `renderHTML` rules.
 
 Features:
 
-- **Field placeholders** — insert model fields as inline chips. HTML output: `<span data-tpl-field="fieldPath" data-tpl-label="label">{{fieldPath}}</span>`. The Insert Field picker (including related one-level paths and loop-table column choices) excludes `reversedFields` from `@/types/BaseModel` (e.g. `id`, `tenantId`, `version`, audit timestamps and user references), matching other flows that treat these as system-managed.
+- **Field placeholders** — insert a field of the source as an inline chip. HTML output: `<span data-tpl-field="fieldPath" data-tpl-label="label">{{fieldPath}}</span>`. The server reads the inner `{{fieldPath}}` only; the chip shows the label stored when it was inserted. The Insert Field picker (including related one-level paths and loop-table column choices) excludes `reversedFields` from `@/types/BaseModel` (e.g. `id`, `tenantId`, `version`, audit timestamps and user references), matching other flows that treat these as system-managed.
 - **Custom variables** — insert single-use variables as inline chips. HTML output: `<span data-tpl-variable="employee_name" data-tpl-label="Employee Name" data-tpl-value-type="String" data-tpl-required="true">{{employee_name}}</span>`
 - **Signature slots** — insert fixed-size inline signature placeholders that can live inside text flow. Multiple signature slots can be inserted on the same line, sit side by side, and leave room for typed spacing or text between slots. Default toolbar presets map to signing-party slots such as `Sender` and `Receiver`. HTML output: `<span data-tpl-signature="Sender" data-tpl-label="Sender Signature"></span>`
 - **Relation field expansion** — expand `ManyToOne` / `OneToOne` relations one level to insert nested paths (e.g. `department.name`)
-- **Loop tables** — insert `OneToMany` / `ManyToMany` relations as loop tables with selectable columns. HTML output: `<table data-tpl-loop="relationField" data-tpl-model="RelatedModel">` with `<th data-tpl-field="col">` headers
-- **Toolbar actions** — `Insert Field`, `Insert Variable`, and `Insert Signature`, each individually configurable via widget props
-- **Two-level lazy loading** — same as `RichText`: read-only renders the stored HTML (sanitized by `SafeHtml`) without Tiptap; edit mode lazy-loads the full editor
+- **Loop tables** — insert a list of the source (a model's `OneToMany` / `ManyToMany` relation, a declared set's list of records) as a table that repeats its row for each item, with selectable columns. HTML output: `<table data-tpl-loop="listField" data-tpl-model="RelatedModel">` with `<th data-tpl-field="col">` headers and one body row of `<td>{{col}}</td>`; a declared list has no model and stores no `data-tpl-model`. Clicking an inserted loop table reopens the column selector with its columns ticked and updates it in place
+- **Condition blocks** (`enableInsertCondition`) — a dashed frame around content that is included only when a condition on one field holds, titled with the condition ("Show if Amount > 1000"). `Insert Condition` frames the selected blocks, or inserts an empty frame at the cursor; clicking the title reopens the dialog to change the condition without touching the content. HTML output: `<div data-tpl-if="amount" data-tpl-op="gt" data-tpl-value="1000" data-tpl-value-type="number" data-tpl-label="Amount > 1000">…</div>`. A condition block cannot hold another one
+- **Plain placeholders shown as field blocks** (`recognizePlaceholders`) — a body written by a seed or through the API prints a value as bare `{{ name }}`. When such a template is opened and its source is known, each `{{ name }}` the source has (a field, or a dotted path whose parts all resolve) is shown as a field block labelled from the source, in the editor and read-only alike. A name the source does not know, anything with a filter or an operator, a placeholder inside an HTML attribute (`href="{{ link }}"`) or inside a loop table stays as written. Opening a template without editing it does not mark the form as changed
+- **Toolbar actions** — `Insert Field`, `Insert Condition`, `Insert Variable`, and `Insert Signature`, each individually configurable via widget props
+- **Two-level lazy loading** — same as `RichText`: read-only renders the stored HTML (sanitized by `SafeHtml`, which keeps the `data-tpl-*` attributes) without Tiptap, with field blocks as their labels and loop tables and condition blocks framed as in the editor; edit mode lazy-loads the full editor
 - **Saved-record preview** — `DocumentTemplate` RichText records can open `/admin/document-template/[id]/preview` in a new tab, use the left-side outline to jump between variables and signature slots, switch `Preview As` between `All`, `Sender`, and `Receiver`, and click highlighted placeholders in the document preview to fill custom variables and capture signatures locally
 
 ```tsx
@@ -138,6 +149,23 @@ Features:
 />
 ```
 
+A mail template body: the source is whichever of the two the record names, the blocks are fields, loop tables and conditions, and a seeded body's plain placeholders are shown as field blocks. Custom variables and signature slots belong to document templates and stay off.
+
+```tsx
+<Field
+  fieldName="bodyHtml"
+  widgetType="TemplateEditor"
+  widgetProps={{
+    variablesName: "{{ variablesName }}",
+    modelName: "{{ modelName }}",
+    enableInsertVariable: false,
+    enableInsertSignature: false,
+    enableInsertCondition: true,
+    recognizePlaceholders: true,
+  }}
+/>
+```
+
 `TemplateEditor` widget props:
 
 | Prop                    | Type               | Default | Notes                                                                                                                                   |
@@ -147,8 +175,22 @@ Features:
 | `enableInsertField`     | `boolean`          | `true`  | Whether the toolbar shows `Insert Field`.                                                                                               |
 | `enableInsertVariable`  | `boolean`          | `true`  | Whether the toolbar shows `Insert Variable`.                                                                                            |
 | `enableInsertSignature` | `boolean`          | `true`  | Whether the toolbar shows `Insert Signature`.                                                                                           |
+| `variablesName`         | `string`           | -       | Declared set of variables to offer instead of a model's fields. A static name or a field reference like `"{{ variablesName }}"`. Declaring it makes the source exactly what the two props resolve to — the set when named, else the model, else none. |
+| `enableInsertCondition` | `boolean`          | `false` | Whether the toolbar shows `Insert Condition`. Where it is off the editor has no condition block at all, so one in stored HTML is read as its content. Turn it on only where the server translates the block (mail bodies). |
+| `recognizePlaceholders` | `boolean`          | `false` | Whether plain `{{ name }}` placeholders the source knows are shown as field blocks when the template is opened.                          |
 
-If `modelName` is omitted, falls back to the field's own `metaField.modelName`.
+If `modelName` is omitted and `variablesName` is not declared, falls back to the field's own `metaField.modelName`.
+
+The comparisons a condition block offers mirror what the server checks on save, so the dialog cannot build a condition a save refuses:
+
+| Field type | Comparisons offered | Value |
+| --- | --- | --- |
+| `Integer` / `Long` / `Double` / `BigDecimal` | equals, does not equal, greater / less than (or equal to), is empty, is not empty | a number (`data-tpl-value-type="number"`) |
+| `Boolean` | is true, is false, equals, does not equal, is empty, is not empty | True / False (`"boolean"`) |
+| `String` / `Text` / `Option` | equals, does not equal, is empty, is not empty | text (`"string"`); for a model's option field the item is picked from its option set and stored as its item code |
+| anything else — dates and times, relations, lists, nested sets | is empty, is not empty | none |
+
+`data-tpl-value` and `data-tpl-value-type` are stored only for a comparison that takes a value. The field is picked from the source's own fields, the fields under a relation or nested set, or a list (to ask whether it has any rows); a relation itself is not offered.
 
 Custom variable schema:
 

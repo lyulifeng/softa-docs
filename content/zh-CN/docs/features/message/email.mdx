@@ -39,6 +39,13 @@ SendMailDTO welcome = SendMailDTO.ofTemplate(List.of("alice@example.com"), "USER
         Map.of("name", "Alice", "activationUrl", "https://app.example.com/activate/abc123"), MessageScope.TENANT);
 messageService.sendMail(welcome);
 
+// A template that names a declared set of variables: pass the object, not a map.
+messageService.sendMail(SendMailDTO.ofTemplate(List.of("alice@example.com"), "flow.approved",
+        new ApprovalNoticeVariables(subject, content, flowName, recordCode, link), MessageScope.TENANT));
+
+// A template bound to a model: name the record, its fields are read when the send is accepted.
+messageService.sendMail(SendMailDTO.ofRecord(List.of("alice@example.com"), "order.confirmed", orderId, MessageScope.TENANT));
+
 // Independent messages in one call: one record each, ids in input order.
 List<Long> ids = messageService.sendMailBatch(List.of(
         SendMailDTO.ofTemplate(List.of("alice@example.com"), "ORDER_CONFIRMATION", Map.of("orderNo", "SO-1001"), MessageScope.TENANT),
@@ -132,7 +139,7 @@ List<Long> ids = messageService.sendMailBatch(List.of(
 
 </Lead>
 
-- 主题按 `{{ 变量名 }}` 做简单替换，变量缺失时原样留着；正文用 Pebble 渲染，可以用 `{% for %}` 循环，HTML 正文里输出的变量会自动转义（确实要输出 HTML 时用 `| raw`）。
+- 主题按 `{{ 变量名 }}` 做简单替换，变量缺失时原样留着；带点号的名字（`{{ customerId.name }}`）会沿着嵌套的值往下取。正文用 Pebble 渲染，HTML 正文里输出的变量会自动转义（确实要输出 HTML 时用 `| raw`）。循环和判断见下面的「循环表格和条件区块」。
 - 日期和时间变量按接口的格式输出：`LocalDateTime` 是 `2026-11-12 13:00:40`，`LocalDate` 是 `2026-11-12`，用的是服务器本地时间，不带时区。调用方传日期对象本身，不要先 `toString()`，否则会原样输出 ISO 串 `2026-11-12T13:00:40.123456789`。变量随发送记录存成 JSON，模板拿到的是这段文字；要换格式，给 `date` 过滤器写明原格式：`{{ time | date("dd/MM/yyyy HH:mm", existingFormat="yyyy-MM-dd HH:mm:ss") }}`。
 - 按 code 找时只认启用的模板；给了 `templateId` 时用那一行，不管是否启用（编辑器试发用）。
 - 模板缺失或渲染出错，记录以 `TEMPLATE_NOT_RESOLVABLE` 失败，调用方不会收到异常。code 在另一层时同样失败，错误信息写明应改用哪个范围发送。
@@ -149,6 +156,86 @@ POST /MailTemplate/createOne
   "active": true
 }
 ```
+
+### 变量来源
+
+模板可以写明它的变量从哪来。两个字段最多填一个；都不填的模板不做任何校验，发来什么变量就用什么，和以前一样。
+
+| | `variablesName` | `modelName` |
+|---|---|---|
+| 填的是 | 代码里声明的一组变量的名字 | 一个模型的名字 |
+| 适用 | 由代码填值的模板：验证码、邀请、审批通知 | 跟着单据走的模板：租户自建、给流程用的 |
+| 哪些模板有 | `MailTemplate`、`PlatformMailTemplate`、`SmsTemplate` | 只有 `MailTemplate` |
+| 发送时传 | 这组变量的对象：`SendMailDTO.ofTemplate(to, code, variables, scope)` | 单据 id：`SendMailDTO.ofRecord(to, code, id, scope)` |
+| 编辑器里可选的字段 | 这组变量的字段 | 模型的字段，可以沿多对一关联往下选 |
+
+**声明一组变量**：一个带 `@TemplateVariables` 的 record，每个分量是一个变量。标签、说明、示例值取自分量上的 `@Schema`（`title`、`description`、`example`）。分量可以是文本、数字、布尔、日期时间、枚举、嵌套的 record（模板里写 `sender.fullName`），或 record 的列表（用循环表格显示）。
+
+```java
+@TemplateVariables(name = "flow.approval-notice", label = "Approval notice")
+public record ApprovalNoticeVariables(
+        @Schema(title = "Record code", example = "LR-0012") String recordCode,
+        @Schema(title = "Link", description = "Opens the request") String link) {}
+```
+
+- 声明在启动时收进内存，不落表。两个类声明了同一个名字、类不是 record、分量是不支持的类型，应用启动失败，报错里写明是哪个类。
+- 编辑器经 `GET /TemplateVariables/list`、`GET /TemplateVariables/get?name=` 取到一组变量的字段；结构和模型字段一样，所以同一个字段选择器两种来源都能用。
+
+**保存时**，写明了来源的模板只能用来源里有的东西，否则拒绝并列出问题：
+
+- 来源里没有的变量；模型上读不到的路径。
+- 循环的不是列表；循环表格的列不是列表项的字段。
+- 条件和字段类型不匹配（见下一节）。
+- 模型来源：保存的人看不到的敏感字段。选择器本来就不列这些字段；能不能把某个字段发出去，在写模板时把关，发送时不再看。
+- 不管有没有来源，正文不能通过模板引擎编译的，拒绝并指出位置。
+
+只校验能认出名字的写法：`{{ a + b }}` 不校验，`{{ name | upper }}` 按 `name` 校验。这些规则在每条写入路径上都生效，包括种子加载：种子里的模板写错变量名，应用启动失败。
+
+**发送时**：
+
+- 传对象：模板写明的变量组和对象所属的不是同一组，或模板绑定的是模型，`sendMail` 直接抛出 `BusinessException`，不产生发送记录。对象里没有值的分量按空串发出。
+- 传 Map：从不核对。流程节点里配的变量映射、没写来源的模板都走这条路。
+- 传单据：模板必须绑定了模型。接受请求时按模板用到的字段读这条单据，读出的值和别的变量一样存在发送记录上，失败重试用的是当时读到的值，不重新读。
+  - 读的是显示值：选项读成标签，关联读成显示名称。
+  - **按系统身份读，不打码**。谁触发了发送不应该改变邮件的内容；带掩码的字段输出完整值。
+  - 模板保存之后被删掉的字段输出空白，不让邮件发不出去。
+
+> [!NOTE]
+>
+> `SendMailDTO` 上的单据 id 只能由代码设置，请求体里带上也不会被读取：否则调用发送接口的人就能让服务端替他读任意单据。
+
+### 循环表格和条件区块
+
+HTML 正文里的循环和判断用两种块来写。块是带属性的普通 HTML，由模板编辑器生成，渲染之前才翻译成模板引擎的 `for` / `if`：
+
+```html
+<table data-tpl-loop="lines">
+  <thead><tr><th data-tpl-field="name">Name</th><th data-tpl-field="qty">Qty</th></tr></thead>
+  <tbody><tr><td>{{name}}</td><td>{{qty}}</td></tr></tbody>
+</table>
+
+<div data-tpl-if="amount" data-tpl-op="gt" data-tpl-value="1000" data-tpl-value-type="number">
+  <p>Needs a second approver.</p>
+</div>
+```
+
+- **循环表格**对列表里的每一项重复 `<tbody>` 里的那一行，单元格里的 `{{name}}` 取的是这一项的字段。列表为空时只剩表头。模型来源的列表是模型自己的一对多、多对多字段。
+- **条件区块**在条件成立时才出现在邮件里。条件有 `isTrue`、`isFalse`、`isEmpty`、`isNotEmpty`、`eq`、`ne`、`gt`、`ge`、`lt`、`le`；`data-tpl-value-type` 是 `string`（默认）、`number` 或 `boolean`。
+
+| 字段类型 | 可用的条件 |
+|---|---|
+| 布尔 | `isTrue`、`isFalse`、`eq`、`ne`、`isEmpty`、`isNotEmpty` |
+| 数字 | `eq`、`ne`、`gt`、`ge`、`lt`、`le`、`isEmpty`、`isNotEmpty` |
+| 文本、选项 | `eq`、`ne`、`isEmpty`、`isNotEmpty`；选项按选项编码比较 |
+| 日期时间、关联、列表 | `isEmpty`、`isNotEmpty` |
+
+条件存成几个属性而不是一个表达式，交给模板引擎的判断由服务端按这几个属性拼出来，值会按类型转义，所以作者没法借它写进任意表达式。条件比较的是字段存的值（选项的编码、真正的布尔），`{{ }}` 输出的是显示值，两者互不影响。以文本形式传来的数字和布尔（预览时填的值、流程节点映射过来的变量）按它表示的数字和布尔比较；不是数字的值做大小比较时结果是不成立，不会让发送出错。
+
+为什么不直接写 `{% for %}`：它必须夹在 `<tbody>` 和 `<tr>` 之间，这个位置按 HTML 规则不能放文字，富文本编辑器（任何 HTML 解析器都一样）会把它挪到表格外面；条件里的 `>` 也会被写回成 `&gt;`，模板引擎不认。
+
+手写的 `{% %}` 仍然可以用，也可以和块出现在同一份正文里，渲染结果互不影响。但带手写标签的正文不要在页面的富文本编辑器里打开再保存，上面两种改写仍会发生；保存时的编译检查只能拦住其中会报错的那一种。
+
+编辑器插入的字段是包着 `{{ 名字 }}` 的 `<span data-tpl-field="…" data-tpl-label="…">`。这两个属性只给编辑器显示标签用，服务端不读，邮件发出去时带着它们，邮件客户端会忽略。
 
 ### 正文模式
 
@@ -167,7 +254,7 @@ POST /MailTemplate/createOne
 
 模板编辑器的「预览与试发」用到三个操作。`id` 指向正在编辑的那一行，不经解析、不受启用状态限制，所以停用的模板启用之前就能完整检查和试发；`code` 供程序调用，在接口所在的那一层按 code 找。
 
-- `GET /api/mail/templates/variables?id=|code=`：模板用到的变量，按首次出现排序并分类，供输入界面使用：`VARIABLE`（普通名字，一行文本）、`COLLECTION`（循环的集合，填 JSON）、`EXPRESSION`（表达式里的操作数，填 JSON）、`RESERVED_FIELD`（由服务端解析）。循环变量、Pebble 内置的 `loop`、`{% set %}` 的目标这些模板内部的名字不列出。
+- `GET /api/mail/templates/variables?id=|code=`：模板用到的变量，按首次出现排序并分类，供输入界面使用：`VARIABLE`（普通名字，一行文本；条件区块比较的字段也在这一类）、`COLLECTION`（循环的集合，填 JSON；循环表格的列表也在这一类）、`EXPRESSION`（表达式里的操作数，填 JSON）、`RESERVED_FIELD`（由服务端解析）。循环变量、Pebble 内置的 `loop`、`{% set %}` 的目标这些模板内部的名字不列出。
 - `POST /api/mail/templates/preview`：用给定变量渲染主题和正文，不发送。
 - 试发：`SendMailDTO.templateId` 指定这一行，走完整的生产链路：预览什么，发出去就是什么。
 

@@ -39,6 +39,13 @@ SendMailDTO welcome = SendMailDTO.ofTemplate(List.of("alice@example.com"), "USER
         Map.of("name", "Alice", "activationUrl", "https://app.example.com/activate/abc123"), MessageScope.TENANT);
 messageService.sendMail(welcome);
 
+// A template that names a declared set of variables: pass the object, not a map.
+messageService.sendMail(SendMailDTO.ofTemplate(List.of("alice@example.com"), "flow.approved",
+        new ApprovalNoticeVariables(subject, content, flowName, recordCode, link), MessageScope.TENANT));
+
+// A template bound to a model: name the record, its fields are read when the send is accepted.
+messageService.sendMail(SendMailDTO.ofRecord(List.of("alice@example.com"), "order.confirmed", orderId, MessageScope.TENANT));
+
 // Independent messages in one call: one record each, ids in input order.
 List<Long> ids = messageService.sendMailBatch(List.of(
         SendMailDTO.ofTemplate(List.of("alice@example.com"), "ORDER_CONFIRMATION", Map.of("orderNo", "SO-1001"), MessageScope.TENANT),
@@ -132,7 +139,7 @@ Reusable content goes into templates. A tenant's templates are in `MailTemplate`
 
 </Lead>
 
-- The subject gets a simple `{{ variable }}` substitution, leaving a placeholder as it is when its variable is missing; the body is rendered with Pebble, so `{% for %}` loops can be used, and variables output in an HTML body are escaped automatically (use `| raw` where HTML really must be output).
+- The subject gets a simple `{{ variable }}` substitution, leaving a placeholder as it is when its variable is missing; a dotted name (`{{ customerId.name }}`) is followed through nested values. The body is rendered with Pebble, and variables output in an HTML body are escaped automatically (use `| raw` where HTML really must be output). For loops and conditions see *Loop tables and condition blocks* below.
 - Date and time variables print as the API writes them: a `LocalDateTime` as `2026-11-12 13:00:40`, a `LocalDate` as `2026-11-12`, in the server's local time with no zone. The caller passes the date object itself, not its `toString()`, which would be printed as the ISO text `2026-11-12T13:00:40.123456789`. The variables are stored with the send record as JSON, so the template receives that text; for another format, give the `date` filter the stored one: `{{ time | date("dd/MM/yyyy HH:mm", existingFormat="yyyy-MM-dd HH:mm:ss") }}`.
 - A lookup by code only finds active templates; given a `templateId`, that row is used whether or not it is active (for test sends from the editor).
 - A missing template or a rendering error fails the record with `TEMPLATE_NOT_RESOLVABLE`; the caller gets no exception. A code that lives in the other tier fails the same way, with a message naming the scope to send it with.
@@ -149,6 +156,86 @@ POST /MailTemplate/createOne
   "active": true
 }
 ```
+
+### Where a template's variables come from
+
+A template may say where its variables come from. At most one of the two fields is set; a template that sets neither is not checked at all and takes whatever variables it is sent with, as before.
+
+| | `variablesName` | `modelName` |
+|---|---|---|
+| Holds | the name of a set of variables declared in code | the name of a model |
+| For | templates filled by code: verification codes, invitations, approval notices | templates that follow a record: a tenant's own, used by flows |
+| On | `MailTemplate`, `PlatformMailTemplate`, `SmsTemplate` | `MailTemplate` only |
+| A send passes | an object of the set: `SendMailDTO.ofTemplate(to, code, variables, scope)` | the record's id: `SendMailDTO.ofRecord(to, code, id, scope)` |
+| The editor offers | the set's fields | the model's fields, followed through many-to-one relations |
+
+**Declaring a set**: a record carrying `@TemplateVariables`, one component per variable. The label, description and sample value come from the component's `@Schema` (`title`, `description`, `example`). A component is text, a number, a boolean, a date or time, an enum, a nested record (written `sender.fullName` in a template), or a list of records (shown with a loop table).
+
+```java
+@TemplateVariables(name = "flow.approval-notice", label = "Approval notice")
+public record ApprovalNoticeVariables(
+        @Schema(title = "Record code", example = "LR-0012") String recordCode,
+        @Schema(title = "Link", description = "Opens the request") String link) {}
+```
+
+- Declarations are collected into memory at startup; nothing is stored. Two classes declaring one name, a class that is not a record, or a component of an unsupported type stop the application, naming the class.
+- The editor reads a set's fields from `GET /TemplateVariables/list` and `GET /TemplateVariables/get?name=`; they are shaped like a model's fields, so one field picker serves both sources.
+
+**On save**, a template that names a source may only use what the source has; anything else is refused, listing what is wrong:
+
+- a variable the source does not have; a path the model cannot read;
+- a loop over something that is not a list; a loop table column that is not a field of the list's items;
+- a condition that does not fit its field's type (next section);
+- for a model: a sensitive field the saving user has no access to. The picker never offers such a field; whether a field may be mailed is decided when the template is written, not when it is sent;
+- with or without a source, a body the template engine cannot compile, with the position.
+
+Only what can be recognised as a name is checked: `{{ a + b }}` is not, `{{ name | upper }}` is checked as `name`. The rules hold on every write path, seed loading included: a seeded template naming an unknown variable stops the application from starting.
+
+**On send**:
+
+- An object: when the template names another set than the object's, or is bound to a model, `sendMail` throws a `BusinessException` and no send record is written. A component with no value is sent empty.
+- A map: never checked. A flow node's mapped variables and templates without a source go this way.
+- A record: the template must be bound to a model. The fields the template uses are read when the send is accepted and stored on the send record like any other variables; a retry sends what was read then.
+  - Display values are read: an option as its label, a relation as its display name.
+  - **Read as the system, unmasked.** Who triggers a send must not change what the mail says; a masked field goes out in full.
+  - A field removed after the template was saved prints blank rather than stopping the mail.
+
+> [!NOTE]
+>
+> The record id on `SendMailDTO` is set by code only and is never read from a request body: otherwise a caller of the send API could have the server read any record for them.
+
+### Loop tables and condition blocks
+
+Loops and conditions in an HTML body are written as two blocks. A block is plain HTML carrying attributes, produced by the template editor and translated into the engine's `for` / `if` just before rendering:
+
+```html
+<table data-tpl-loop="lines">
+  <thead><tr><th data-tpl-field="name">Name</th><th data-tpl-field="qty">Qty</th></tr></thead>
+  <tbody><tr><td>{{name}}</td><td>{{qty}}</td></tr></tbody>
+</table>
+
+<div data-tpl-if="amount" data-tpl-op="gt" data-tpl-value="1000" data-tpl-value-type="number">
+  <p>Needs a second approver.</p>
+</div>
+```
+
+- A **loop table** repeats the row in its `<tbody>` for each item of the list; a `{{name}}` in a cell is that item's field. An empty list leaves the header only. For a model, the list is one of the model's own one-to-many or many-to-many fields.
+- A **condition block** is in the mail only when its condition holds. Comparisons: `isTrue`, `isFalse`, `isEmpty`, `isNotEmpty`, `eq`, `ne`, `gt`, `ge`, `lt`, `le`; `data-tpl-value-type` is `string` (default), `number` or `boolean`.
+
+| Field type | Comparisons |
+|---|---|
+| Boolean | `isTrue`, `isFalse`, `eq`, `ne`, `isEmpty`, `isNotEmpty` |
+| Number | `eq`, `ne`, `gt`, `ge`, `lt`, `le`, `isEmpty`, `isNotEmpty` |
+| Text, option | `eq`, `ne`, `isEmpty`, `isNotEmpty`; an option is compared by its item code |
+| Date or time, relation, list | `isEmpty`, `isNotEmpty` |
+
+A condition is stored as attributes rather than an expression, and the condition handed to the template engine is built by the server from them with the value escaped for its type, so an author cannot put an expression of their own into a template through it. A condition compares the field's stored value (an option's code, a real boolean); `{{ }}` prints its display value; neither affects the other. A number or boolean that arrives as text — a value typed into a preview, a variable mapped on a flow node — is compared as what it spells; a value that is no number simply does not satisfy an ordering, instead of failing the send.
+
+Why not write `{% for %}` directly: it has to sit between `<tbody>` and `<tr>`, where HTML allows no text, so a rich-text editor — any HTML parser — moves it out of the table; and a `>` in a condition is written back as `&gt;`, which the engine refuses.
+
+Hand-written `{% %}` still works, also in the same body as blocks; neither affects how the other renders. But do not open a body carrying hand-written tags in the page's rich-text editor and save it — the two rewrites above still happen, and the compile check on save only catches the one that is an error.
+
+A field inserted by the editor is a `<span data-tpl-field="…" data-tpl-label="…">` around `{{ name }}`. The two attributes are for the editor's label only; the server does not read them, and a mail goes out with them, where mail clients ignore them.
 
 ### Body modes
 
@@ -167,7 +254,7 @@ Switching `bodyMode` in the editor moves the existing body into the input the ne
 
 The template editor's Preview & Send Test dialog is backed by three operations. `id` targets the row being edited, with no resolution and no active-status filter, so a disabled template can be fully checked and test-sent before it is enabled; `code`, for programmatic callers, is looked up in the tier the endpoint serves.
 
-- `GET /api/mail/templates/variables?id=|code=`: the variables the template uses, in order of first appearance and classified for the input UI: `VARIABLE` (a plain name, one line of text), `COLLECTION` (a collection a loop iterates, entered as JSON), `EXPRESSION` (an operand in an expression, entered as JSON), `RESERVED_FIELD` (resolved server-side). Names internal to the template — loop variables, Pebble's built-in `loop`, the targets of `{% set %}` — are not listed.
+- `GET /api/mail/templates/variables?id=|code=`: the variables the template uses, in order of first appearance and classified for the input UI: `VARIABLE` (a plain name, one line of text; the field a condition block compares is one too), `COLLECTION` (a collection a loop iterates, entered as JSON; a loop table's list is one too), `EXPRESSION` (an operand in an expression, entered as JSON), `RESERVED_FIELD` (resolved server-side). Names internal to the template — loop variables, Pebble's built-in `loop`, the targets of `{% set %}` — are not listed.
 - `POST /api/mail/templates/preview`: renders the subject and body with the given variables, without sending.
 - Test send: `SendMailDTO.templateId` names this row and goes through the full production path: what was previewed is what goes out.
 

@@ -137,6 +137,19 @@ flowchart LR
 
 </Dev>
 
+### 配置 Infobip 账户
+
+Infobip 走 v3 接口 `POST {apiEndpoint}/sms/3/messages`，直接发送渲染好的正文，模板绑定上的外部模板 id 和签名对它不起作用。
+
+| 字段 | 填什么 |
+|---|---|
+| `apiKey` | Infobip 后台生成的 API key，请求时带 `Authorization: App <apiKey>` |
+| `apiEndpoint` | 必填，账号自己的地址，如 `https://xxxxx.api.infobip.com`，不带路径；为空时记录以 `INFOBIP_ENDPOINT_MISSING` 失败 |
+| `senderNumber` / `senderId` | 发送方，先取号码，没有再取字母 ID；都不填时请求不带 `sender`，用哪个发送方由 Infobip 决定。字母 ID 在部分国家要先报备（新加坡是 SSIR） |
+| `apiSecret`、`accountId`、`extConfig` | 不用，留空 |
+
+收件人号码和号码型发送方去掉开头的 `+` 再发。Infobip 接口报错时，记录的错误码和原因取自回包的 `errorCode`、`description` 和第一条 `violations`。
+
 ## 投递回执
 
 提供商接收即记为 <Status>Sent</Status>。短信是否真的送到手机，看记录上的 `deliveryStatus`（`Unknown`、`Delivered`、`Undelivered`、`Failed`）和 `deliveryStatusUpdatedAt`：框架不接收提供商的回执推送，应用没有把回执写回记录时，`deliveryStatus` 一直是 `Unknown`。要接回执，在应用里加控制器接收提供商的推送，自己更新记录的 `deliveryStatus` 和 `deliveryStatusUpdatedAt`；发送记录服务没有现成的方法。

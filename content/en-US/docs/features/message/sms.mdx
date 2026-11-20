@@ -145,8 +145,11 @@ Infobip goes through its v3 API, `POST {apiEndpoint}/sms/3/messages`, and sends 
 |---|---|
 | `apiKey` | The API key generated in the Infobip portal, sent as `Authorization: App <apiKey>` |
 | `apiEndpoint` | Required: the account's own base URL, such as `https://xxxxx.api.infobip.com`, without a path; when it is empty the record fails with `INFOBIP_ENDPOINT_MISSING` |
-| `senderNumber` / `senderId` | The sender: the number first, else the alphanumeric ID; with neither, the request carries no `sender` and Infobip decides which sender to use. Some countries require an alphanumeric ID to be registered first (Singapore: SSIR) |
+| `senderNumber` | A numeric sender: an E.164 long number, or a short code (such as a 4–6 digit New Zealand code), entered as the provider issued it. Used first when both are set |
+| `senderId` | An alphanumeric sender such as a brand name; used only when `senderNumber` is empty. Some countries require it to be registered first; Singapore requires SSIR registration |
 | `apiSecret`, `accountId`, `extConfig` | Not used; leave them empty |
+
+With neither set, the request carries no `sender` and Infobip decides which sender to use. A config has one sender, so when countries need different senders, create one config per sender; they can share an API key. For example, a Singapore config with only `senderId`, and a New Zealand config with the short code in `senderNumber`, each with its own country's routing row.
 
 The recipient number and a numeric sender are sent without the leading `+`. When the Infobip API returns an error, the record's error code and reason come from the response's `errorCode`, `description` and first `violations` entry.
 

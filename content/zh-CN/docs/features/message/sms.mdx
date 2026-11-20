@@ -145,8 +145,11 @@ Infobip 走 v3 接口 `POST {apiEndpoint}/sms/3/messages`，直接发送渲染�
 |---|---|
 | `apiKey` | Infobip 后台生成的 API key，请求时带 `Authorization: App <apiKey>` |
 | `apiEndpoint` | 必填，账号自己的地址，如 `https://xxxxx.api.infobip.com`，不带路径；为空时记录以 `INFOBIP_ENDPOINT_MISSING` 失败 |
-| `senderNumber` / `senderId` | 发送方，先取号码，没有再取字母 ID；都不填时请求不带 `sender`，用哪个发送方由 Infobip 决定。字母 ID 在部分国家要先报备（新加坡是 SSIR） |
+| `senderNumber` | 号码型发送方：E.164 长号码，或短码（如新西兰的 4–6 位短码），按供应商给的原样填。两个都填时先用它 |
+| `senderId` | 字母发送方，如品牌名；`senderNumber` 为空时才用。部分国家要先报备，新加坡要在 SSIR 注册 |
 | `apiSecret`、`accountId`、`extConfig` | 不用，留空 |
+
+两个都不填时请求不带 `sender`，用哪个发送方由 Infobip 决定。一行配置只有一个发送方，各国要的发送方不同时就建几行配置，可以共用一个 API key：比如新加坡一行只填 `senderId`，新西兰一行在 `senderNumber` 填短码，各自配本国的路由行。
 
 收件人号码和号码型发送方去掉开头的 `+` 再发。Infobip 接口报错时，记录的错误码和原因取自回包的 `errorCode`、`description` 和第一条 `violations`。
 

@@ -151,7 +151,7 @@ Infobip goes through its v3 API, `POST {apiEndpoint}/sms/3/messages`, and sends 
 
 With neither set, the request carries no `sender` and Infobip decides which sender to use. A config has one sender, so when countries need different senders, create one config per sender; they can share an API key. For example, a Singapore config with only `senderId`, and a New Zealand config with the short code in `senderNumber`, each with its own country's routing row.
 
-The recipient number and a numeric sender are sent without the leading `+`. When the Infobip API returns an error, the record's error code and reason come from the response's `errorCode`, `description` and first `violations` entry.
+The recipient number and a numeric sender are sent without the leading `+`. When the Infobip API answers with an HTTP error, the record's error code is `HTTP_` followed by the status (`HTTP_401`, say) and its message carries the response's `errorCode`, `description` and first `violations` entry; an SMS refused at submission has Infobip's status name as the code (`REJECTED_SOURCE`, say). Which codes are retried is in [Failures and retries](./delivery#failures-and-retries).
 
 ## Delivery receipts
 

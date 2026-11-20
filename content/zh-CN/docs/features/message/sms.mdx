@@ -151,7 +151,7 @@ Infobip 走 v3 接口 `POST {apiEndpoint}/sms/3/messages`，直接发送渲染�
 
 两个都不填时请求不带 `sender`，用哪个发送方由 Infobip 决定。一行配置只有一个发送方，各国要的发送方不同时就建几行配置，可以共用一个 API key：比如新加坡一行只填 `senderId`，新西兰一行在 `senderNumber` 填短码，各自配本国的路由行。
 
-收件人号码和号码型发送方去掉开头的 `+` 再发。Infobip 接口报错时，记录的错误码和原因取自回包的 `errorCode`、`description` 和第一条 `violations`。
+收件人号码和号码型发送方去掉开头的 `+` 再发。Infobip 接口回 HTTP 错误时，记录的错误码是 `HTTP_` 加状态码（如 `HTTP_401`），错误信息里是回包的 `errorCode`、`description` 和第一条 `violations`；受理时被拒绝的，错误码是 Infobip 的状态名（如 `REJECTED_SOURCE`）。各错误码重试与否见[失败与重试](./delivery#失败与重试)。
 
 ## 投递回执
 

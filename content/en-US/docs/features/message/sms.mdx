@@ -137,6 +137,19 @@ Built-in adapters: Twilio, Infobip, Bird, CM, Sinch, ClickSend, BytePlus, Aliyun
 
 </Dev>
 
+### Configuring an Infobip account
+
+Infobip goes through its v3 API, `POST {apiEndpoint}/sms/3/messages`, and sends the rendered text as it is; the external template id and signature on a template binding do not apply to it.
+
+| Field | What to fill in |
+|---|---|
+| `apiKey` | The API key generated in the Infobip portal, sent as `Authorization: App <apiKey>` |
+| `apiEndpoint` | Required: the account's own base URL, such as `https://xxxxx.api.infobip.com`, without a path; when it is empty the record fails with `INFOBIP_ENDPOINT_MISSING` |
+| `senderNumber` / `senderId` | The sender: the number first, else the alphanumeric ID; with neither, the request carries no `sender` and Infobip decides which sender to use. Some countries require an alphanumeric ID to be registered first (Singapore: SSIR) |
+| `apiSecret`, `accountId`, `extConfig` | Not used; leave them empty |
+
+The recipient number and a numeric sender are sent without the leading `+`. When the Infobip API returns an error, the record's error code and reason come from the response's `errorCode`, `description` and first `violations` entry.
+
 ## Delivery receipts
 
 A record is <Status>Sent</Status> as soon as the provider accepts the message. Whether the SMS really reached the phone is in the record's `deliveryStatus` (`Unknown`, `Delivered`, `Undelivered`, `Failed`) and `deliveryStatusUpdatedAt`: the framework does not receive providers' receipt pushes, and unless the application writes receipts back to the record, `deliveryStatus` stays `Unknown`. To take receipts, add a controller to the application that receives the provider's pushes and updates the record's `deliveryStatus` and `deliveryStatusUpdatedAt` itself; the send record service has no ready-made method for this.

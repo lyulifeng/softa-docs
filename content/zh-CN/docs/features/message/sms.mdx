@@ -92,7 +92,7 @@ flowchart LR
 | `sms_provider_config` | 提供商账户和凭证 | API key、发信号码或发送方 ID、限流 |
 | `sms_provider_region` | 按国家的路由 | `region_code`（ISO 3166-1 二字母国家码）、`dial_code`、`priority` |
 
-一个提供商账户通常服务很多国家，所以路由单独一张表，每个国家的优先级写在路由行上。经服务写入时，国家码由 `reference-data-starter` 的国家表校验，`dial_code`（国际区号）由框架从国家码带出，列表里显示成「CN (+86) → Aliyun」，不要手工改。
+一个提供商账户通常服务很多国家，所以路由单独一张表，每个国家的优先级写在路由行上。路由行既可以在提供商页面的 Country Routing 标签页里按提供商编辑，也可以在 SMS Country Routing 列表里按国家查；删除提供商会连同它的路由行一起删除。同一提供商同一国家只能有一条路由行，停用的也算，要用就把那条重新启用。任何写入（两个页面、导入、种子、直接调用）都会用 `reference-data-starter` 的国家表校验国家码，`dial_code`（国际区号）由框架从国家码带出，列表里显示成「CN (+86) → Aliyun」，不要手工改。
 
 收件人的国家由号码按号码段解析（libphonenumber），不看国家表的区号：区号有多国共用，比如 +1 是美国、加拿大等，+64 是新西兰和皮特凯恩群岛，单看区号认不出国家。
 
@@ -145,10 +145,13 @@ Infobip 走 v3 接口 `POST {apiEndpoint}/sms/3/messages`，直接发送渲染�
 |---|---|
 | `apiKey` | Infobip 后台生成的 API key，请求时带 `Authorization: App <apiKey>` |
 | `apiEndpoint` | 必填，账号自己的地址，如 `https://xxxxx.api.infobip.com`，不带路径；为空时记录以 `INFOBIP_ENDPOINT_MISSING` 失败 |
-| `senderNumber` / `senderId` | 发送方，先取号码，没有再取字母 ID；都不填时请求不带 `sender`，用哪个发送方由 Infobip 决定。字母 ID 在部分国家要先报备（新加坡是 SSIR） |
+| `senderNumber` | 号码型发送方：E.164 长号码，或短码（如新西兰的 4–6 位短码），按供应商给的原样填。两个都填时先用它 |
+| `senderId` | 字母发送方，如品牌名；`senderNumber` 为空时才用。部分国家要先报备，新加坡要在 SSIR 注册 |
 | `apiSecret`、`accountId`、`extConfig` | 不用，留空 |
 
-收件人号码和号码型发送方去掉开头的 `+` 再发。Infobip 接口报错时，记录的错误码和原因取自回包的 `errorCode`、`description` 和第一条 `violations`。
+两个都不填时请求不带 `sender`，用哪个发送方由 Infobip 决定。一行配置只有一个发送方，各国要的发送方不同时就建几行配置，可以共用一个 API key：比如新加坡一行只填 `senderId`，新西兰一行在 `senderNumber` 填短码，各自配本国的路由行。
+
+收件人号码和号码型发送方去掉开头的 `+` 再发。Infobip 接口回 HTTP 错误时，记录的错误码是 `HTTP_` 加状态码（如 `HTTP_401`），错误信息里是回包的 `errorCode`、`description` 和第一条 `violations`；受理时被拒绝的，错误码是 Infobip 的状态名（如 `REJECTED_SOURCE`）。各错误码重试与否见[失败与重试](./delivery#失败与重试)。
 
 ## 投递回执
 

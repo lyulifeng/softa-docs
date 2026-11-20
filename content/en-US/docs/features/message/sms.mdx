@@ -92,7 +92,7 @@ flowchart LR
 | `sms_provider_config` | Provider accounts and credentials | API key, sender number or sender ID, rate limits |
 | `sms_provider_region` | Routing by country | `region_code` (ISO 3166-1 alpha-2 country code), `dial_code`, `priority` |
 
-One provider account usually serves many countries, so routing has a table of its own, and each country's priority is on its route row. When route rows are written through the service, country codes are validated against the country table of `reference-data-starter`; `dial_code` (the international calling code) is filled in by the framework from the country code, and lists show a route as "CN (+86) → Aliyun"; do not edit `dial_code` by hand.
+One provider account usually serves many countries, so routing has a table of its own, and each country's priority is on its route row. Route rows are edited per provider on the provider's Country Routing tab, or queried per country on the SMS Country Routing list; deleting a provider deletes its route rows with it. A provider has at most one route row per country, disabled ones included: re-enable that row to use it again. Every write (both pages, import, seed, a direct call) validates country codes against the country table of `reference-data-starter`; `dial_code` (the international calling code) is filled in by the framework from the country code, and lists show a route as "CN (+86) → Aliyun"; do not edit `dial_code` by hand.
 
 The recipient's country is parsed from the number by its number ranges (libphonenumber), not from the country table's calling codes: calling codes are shared, +1 by the United States, Canada and others, +64 by New Zealand and the Pitcairn Islands, so a calling code alone cannot tell the country.
 
@@ -145,10 +145,13 @@ Infobip goes through its v3 API, `POST {apiEndpoint}/sms/3/messages`, and sends 
 |---|---|
 | `apiKey` | The API key generated in the Infobip portal, sent as `Authorization: App <apiKey>` |
 | `apiEndpoint` | Required: the account's own base URL, such as `https://xxxxx.api.infobip.com`, without a path; when it is empty the record fails with `INFOBIP_ENDPOINT_MISSING` |
-| `senderNumber` / `senderId` | The sender: the number first, else the alphanumeric ID; with neither, the request carries no `sender` and Infobip decides which sender to use. Some countries require an alphanumeric ID to be registered first (Singapore: SSIR) |
+| `senderNumber` | A numeric sender: an E.164 long number, or a short code (such as a 4–6 digit New Zealand code), entered as the provider issued it. Used first when both are set |
+| `senderId` | An alphanumeric sender such as a brand name; used only when `senderNumber` is empty. Some countries require it to be registered first; Singapore requires SSIR registration |
 | `apiSecret`, `accountId`, `extConfig` | Not used; leave them empty |
 
-The recipient number and a numeric sender are sent without the leading `+`. When the Infobip API returns an error, the record's error code and reason come from the response's `errorCode`, `description` and first `violations` entry.
+With neither set, the request carries no `sender` and Infobip decides which sender to use. A config has one sender, so when countries need different senders, create one config per sender; they can share an API key. For example, a Singapore config with only `senderId`, and a New Zealand config with the short code in `senderNumber`, each with its own country's routing row.
+
+The recipient number and a numeric sender are sent without the leading `+`. When the Infobip API answers with an HTTP error, the record's error code is `HTTP_` followed by the status (`HTTP_401`, say) and its message carries the response's `errorCode`, `description` and first `violations` entry; an SMS refused at submission has Infobip's status name as the code (`REJECTED_SOURCE`, say). Which codes are retried is in [Failures and retries](./delivery#failures-and-retries).
 
 ## Delivery receipts
 

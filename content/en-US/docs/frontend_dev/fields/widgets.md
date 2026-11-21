@@ -112,7 +112,7 @@ Tiptap-based template editor for content the backend fills in and renders: mail 
 **Fields that can be inserted** depend on the kind of template:
 
 - A document template: the fields of the model it belongs to (`modelName`). A to-one relation opens to the related record's fields (`departmentId.name`); a to-many relation is a loop table.
-- A mail template: the set of variables its record names in `variablesName` — variables the backend declares in code (`@TemplateVariables`), read from `GET /TemplateVariables/get?name=`, with label, description and sample value. A nested set opens to its fields (`buyer.fullName`); a list of records is a loop table. With no set named, the editor still works as a rich-text editor, and Insert Field says there is nothing to insert.
+- A mail template: the set of variables its record names in `variableSetName` — variables the backend declares in code (`@TemplateVariables`), read from `GET /TemplateVariables/get?name=`, with label, description and sample value. A nested set opens to its fields (`buyer.fullName`); a list of records is a loop table. With no set named, the editor still works as a rich-text editor, and Insert Field says there is nothing to insert.
 
 The "Insert variable" button over a plain-text input — a mail subject, a mail's plain-text body, an SMS content — uses the same list and inserts plain `{{ name }}` text; while the input is hidden by its condition (the plain-text body in a body mode that does not send it), the button is hidden with it.
 
@@ -154,7 +154,7 @@ A mail template body: the fields come from the set the record names, the blocks 
   fieldName="bodyHtml"
   widgetType="TemplateEditor"
   widgetProps={{
-    variablesName: "{{ variablesName }}",
+    variableSetName: "{{ variableSetName }}",
     enableInsertVariable: false,
     enableInsertSignature: false,
     enableInsertCondition: true,
@@ -172,11 +172,11 @@ A mail template body: the fields come from the set the record names, the blocks 
 | `enableInsertField`     | `boolean`          | `true`  | Whether the toolbar shows `Insert Field`.                                                                                               |
 | `enableInsertVariable`  | `boolean`          | `true`  | Whether the toolbar shows `Insert Variable`.                                                                                            |
 | `enableInsertSignature` | `boolean`          | `true`  | Whether the toolbar shows `Insert Signature`.                                                                                           |
-| `variablesName`         | `string`           | -       | Declared set of variables whose fields are available for insertion, for mail templates, instead of a model's fields. A static name or a field reference like `"{{ variablesName }}"`. Declaring it stops the fallback to the field's own `metaField.modelName`: when it is empty there is nothing to insert. |
+| `variableSetName`         | `string`           | -       | Declared set of variables whose fields are available for insertion, for mail templates, instead of a model's fields. A static name or a field reference like `"{{ variableSetName }}"`. Declaring it stops the fallback to the field's own `metaField.modelName`: when it is empty there is nothing to insert. |
 | `enableInsertCondition` | `boolean`          | `false` | Whether the toolbar shows `Insert Condition`. Where it is off the editor has no condition block at all, so one in stored HTML is read as its content. Turn it on only where the server translates the block (mail bodies). |
 | `recognizePlaceholders` | `boolean`          | `false` | Whether plain `{{ name }}` placeholders on the field list are shown as field blocks when the template is opened.                        |
 
-If `modelName` is omitted and `variablesName` is not declared, falls back to the field's own `metaField.modelName`.
+If `modelName` is omitted and `variableSetName` is not declared, falls back to the field's own `metaField.modelName`.
 
 The comparisons a condition block offers mirror what the server checks on save, so the dialog cannot build a condition a save refuses:
 

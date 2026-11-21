@@ -112,7 +112,7 @@
 **能插入的字段**随模板种类而定：
 
 - 文档模板：模板所属模型（`modelName`）的字段。多对一关联可以展开到关联记录的字段（`departmentId.name`），对多关联用循环表格。
-- 邮件模板：模板记录上 `variablesName` 写明的那一组变量，即后端在代码里声明的变量（`@TemplateVariables`），经 `GET /TemplateVariables/get?name=` 读到，带标签、说明和示例值。嵌套的一组可以展开（`buyer.fullName`），记录的列表用循环表格。没写变量组时编辑器仍可当富文本编辑器用，「插入字段」提示没有可插入的内容。
+- 邮件模板：模板记录上 `variableSetName` 写明的那一组变量，即后端在代码里声明的变量（`@TemplateVariables`），经 `GET /TemplateVariables/get?name=` 读到，带标签、说明和示例值。嵌套的一组可以展开（`buyer.fullName`），记录的列表用循环表格。没写变量组时编辑器仍可当富文本编辑器用，「插入字段」提示没有可插入的内容。
 
 主题、邮件的纯文本正文、短信内容这类纯文本输入框上方的「Insert variable」按钮用的是同一份字段清单，插入的是纯文本 `{{ 名字 }}`；输入框按条件隐藏时（纯文本正文在不发它的正文模式下），按钮跟着隐藏。
 
@@ -154,7 +154,7 @@
   fieldName="bodyHtml"
   widgetType="TemplateEditor"
   widgetProps={{
-    variablesName: "{{ variablesName }}",
+    variableSetName: "{{ variableSetName }}",
     enableInsertVariable: false,
     enableInsertSignature: false,
     enableInsertCondition: true,
@@ -172,11 +172,11 @@
 | `enableInsertField`     | `boolean`          | `true`  | 工具栏是否显示 `Insert Field`。                                                                                                         |
 | `enableInsertVariable`  | `boolean`          | `true`  | 工具栏是否显示 `Insert Variable`。                                                                                                     |
 | `enableInsertSignature` | `boolean`          | `true`  | 工具栏是否显示 `Insert Signature`。                                                                                                    |
-| `variablesName`         | `string`           | -       | 可供插入字段的声明变量组，用于邮件模板，代替模型字段。静态名字，或 `"{{ variablesName }}"` 这样的字段引用。声明了这个 prop，就不再回退到字段自身的 `metaField.modelName`：值为空时没有可插入的字段。 |
+| `variableSetName`         | `string`           | -       | 可供插入字段的声明变量组，用于邮件模板，代替模型字段。静态名字，或 `"{{ variableSetName }}"` 这样的字段引用。声明了这个 prop，就不再回退到字段自身的 `metaField.modelName`：值为空时没有可插入的字段。 |
 | `enableInsertCondition` | `boolean`          | `false` | 工具栏是否显示 `Insert Condition`。关闭时编辑器里没有条件区块这种节点，存储的 HTML 里若有，按它的内容读入。只在服务端会翻译这种块的地方打开（邮件正文）。 |
 | `recognizePlaceholders` | `boolean`          | `false` | 打开模板时，是否把字段清单里有的纯 `{{ name }}` 显示成字段块。                                                                        |
 
-若未提供 `modelName`，且没有声明 `variablesName`，会回退到字段自身的 `metaField.modelName`。
+若未提供 `modelName`，且没有声明 `variableSetName`，会回退到字段自身的 `metaField.modelName`。
 
 条件区块可选的比较，和服务端保存时的检查一致，所以对话框配不出保存会被拒绝的条件：
 

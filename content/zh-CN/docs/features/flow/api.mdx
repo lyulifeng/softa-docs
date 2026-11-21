@@ -427,7 +427,7 @@
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| `GET` | `/flow/directory/people` | 能登录的账号（见[审批人解析](./approval#审批人解析)）中，按通讯录模型的搜索字段（工号或姓名）匹配 `keyword` 的人，留空列出全部，按姓名排序，范围是调用方在通讯录模型上的行范围：`DirectoryPerson`——`id`（审批人、抄送人、受托人存的账号 id）、`name`、`code`、`departmentName`、`positionName`；`active` 为空。`approvers=true` 只留能审批的人（见[不能审批的人](./approval#不能审批的人)），在读出这一页之后过滤，所以一页可能少于 `limit` |
+| `GET` | `/flow/directory/people` | 能登录的账号（见[审批人解析](./approval#审批人解析)）中，按通讯录模型的搜索字段（工号或姓名）匹配 `keyword` 的人，留空列出全部，按姓名排序，范围是调用方在通讯录模型上的行范围：`DirectoryPerson`——`id`（审批人、抄送人、受托人存的账号 id）、`name`、`code`、`departmentName`、`positionName`；`active` 为空。`approvers=true` 只留能审批的人（见[不能审批的人](./approval#不能审批的人)），一页仍按 `limit` 凑满能审批的人，所以返回少于 `limit` 条就表示已经到底 |
 | `GET` | `/flow/directory/people/by-ids` | `ids`（逗号分隔，最多 200 个）指定的人，按请求顺序，不受调用方行范围限制：搜索结果变了之后，已选的值靠它显示名字。没有员工档案的账号（如租户管理员）只返回名字，取法与审批视图相同（昵称，没有则用户名）；不对应任何账号的 id 不返回。不透露能否处理 |
 | `GET` | `/flow/directory/people/all` | 供设计器和运维台使用：匹配 `keyword` 的所有登录账号——人员按通讯录模型的搜索字段匹配，没有员工档案的账号按账号模型的搜索字段匹配——按姓名排序，每个都带 `active`；只列能处理事项的，除非 `includeInactive=true`，比如把离职人员手里的待办转走时。越过调用方的行范围 |
 | `GET` | `/flow/directory/people/all/by-ids` | 带 `active` 的 `/people/by-ids`，供设计器和运维台使用 |

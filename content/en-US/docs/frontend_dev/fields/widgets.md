@@ -112,7 +112,7 @@ Tiptap-based template editor for content the backend fills in and renders: mail 
 **Fields that can be inserted** depend on the kind of template:
 
 - A document template: the fields of the model it belongs to (`modelName`). A to-one relation opens to the related record's fields (`departmentId.name`); a to-many relation is a loop table.
-- A mail template: the set of variables its record names in `variableSetName` — variables the backend declares in code (`@TemplateVariables`), read from `GET /TemplateVariables/get?name=`, with label, description and sample value. A nested set opens to its fields (`buyer.fullName`); a list of records is a loop table. With no set named, the editor still works as a rich-text editor, and Insert Field says there is nothing to insert.
+- A mail template: the set of variables its record names in `variableSetName` — variables the backend declares in code (`@TemplateVariableSet`), read from `GET /TemplateVariableSet/get?name=`, with label, description and sample value. A nested set opens to its fields (`buyer.fullName`); a list of records is a loop table. With no set named, the editor still works as a rich-text editor, and Insert Field says there is nothing to insert.
 
 The "Insert variable" button over a plain-text input — a mail subject, a mail's plain-text body, an SMS content — uses the same list and inserts plain `{{ name }}` text; while the input is hidden by its condition (the plain-text body in a body mode that does not send it), the button is hidden with it.
 

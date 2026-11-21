@@ -112,7 +112,7 @@
 **能插入的字段**随模板种类而定：
 
 - 文档模板：模板所属模型（`modelName`）的字段。多对一关联可以展开到关联记录的字段（`departmentId.name`），对多关联用循环表格。
-- 邮件模板：模板记录上 `variableSetName` 写明的那一组变量，即后端在代码里声明的变量（`@TemplateVariables`），经 `GET /TemplateVariables/get?name=` 读到，带标签、说明和示例值。嵌套的一组可以展开（`buyer.fullName`），记录的列表用循环表格。没写变量组时编辑器仍可当富文本编辑器用，「插入字段」提示没有可插入的内容。
+- 邮件模板：模板记录上 `variableSetName` 写明的那一组变量，即后端在代码里声明的变量（`@TemplateVariableSet`），经 `GET /TemplateVariableSet/get?name=` 读到，带标签、说明和示例值。嵌套的一组可以展开（`buyer.fullName`），记录的列表用循环表格。没写变量组时编辑器仍可当富文本编辑器用，「插入字段」提示没有可插入的内容。
 
 主题、邮件的纯文本正文、短信内容这类纯文本输入框上方的「Insert variable」按钮用的是同一份字段清单，插入的是纯文本 `{{ 名字 }}`；输入框按条件隐藏时（纯文本正文在不发它的正文模式下），按钮跟着隐藏。
 

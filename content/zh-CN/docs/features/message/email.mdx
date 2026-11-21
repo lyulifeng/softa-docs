@@ -158,17 +158,17 @@ POST /MailTemplate/createOne
 
 模板可以在 `variableSetName` 里写明它是按代码里声明的哪一组变量写的（验证码、邀请、审批通知这类由代码填值的模板）。`MailTemplate`、`PlatformMailTemplate`、`SmsTemplate` 都有这个字段。写明了，编辑器里可选的就是这组变量的字段，发送时传这组变量的对象：`SendMailDTO.ofTemplate(to, code, variables, scope)`。不填的模板不做任何校验，发来什么变量就用什么，和以前一样。模板保存后不能再换到别的变量组：代码按这组变量填值，换了组发送时会被拒绝。
 
-**声明一组变量**：一个带 `@TemplateVariables` 的 record，每个分量是一个变量。标签、说明、示例值取自分量上的 `@Schema`（`title`、`description`、`example`）。分量可以是文本、数字、布尔、日期时间、枚举、嵌套的 record（模板里写 `sender.fullName`），或 record 的列表（用循环表格显示）。
+**声明一组变量**：一个带 `@TemplateVariableSet` 的 record，每个分量是一个变量。标签、说明、示例值取自分量上的 `@Schema`（`title`、`description`、`example`）。分量可以是文本、数字、布尔、日期时间、枚举、嵌套的 record（模板里写 `sender.fullName`），或 record 的列表（用循环表格显示）。
 
 ```java
-@TemplateVariables(name = "flow.approval-notice", label = "Approval notice")
+@TemplateVariableSet(name = "flow.approval-notice", label = "Approval notice")
 public record ApprovalNoticeVariables(
         @Schema(title = "Record code", example = "LR-0012") String recordCode,
         @Schema(title = "Link", description = "Opens the request") String link) {}
 ```
 
 - 声明在启动时收进内存，不落表。两个类声明了同一个名字、类不是 record、分量是不支持的类型，应用启动失败，报错里写明是哪个类。
-- 编辑器经 `GET /TemplateVariables/list`、`GET /TemplateVariables/get?name=` 取到一组变量的字段；结构和模型字段一样，所以用的是同一个字段选择器。
+- 编辑器经 `GET /TemplateVariableSet/list`、`GET /TemplateVariableSet/get?name=` 取到一组变量的字段；结构和模型字段一样，所以用的是同一个字段选择器。
 
 **保存时**，写明了变量组的模板只能用这组变量里有的东西，否则拒绝并列出问题：
 

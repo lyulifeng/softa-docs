@@ -158,17 +158,17 @@ POST /MailTemplate/createOne
 
 A template may name, in `variableSetName`, the set of variables declared in code that it is written against (templates filled by code: verification codes, invitations, approval notices). `MailTemplate`, `PlatformMailTemplate` and `SmsTemplate` all have the field. When it is set, the editor offers the set's fields, and a send passes an object of the set: `SendMailDTO.ofTemplate(to, code, variables, scope)`. A template that leaves it empty is not checked at all and takes whatever variables it is sent with, as before. Once saved, a template cannot move to another set: code fills it with this set's values, and a send through a template moved to another set is refused.
 
-**Declaring a set**: a record carrying `@TemplateVariables`, one component per variable. The label, description and sample value come from the component's `@Schema` (`title`, `description`, `example`). A component is text, a number, a boolean, a date or time, an enum, a nested record (written `sender.fullName` in a template), or a list of records (shown with a loop table).
+**Declaring a set**: a record carrying `@TemplateVariableSet`, one component per variable. The label, description and sample value come from the component's `@Schema` (`title`, `description`, `example`). A component is text, a number, a boolean, a date or time, an enum, a nested record (written `sender.fullName` in a template), or a list of records (shown with a loop table).
 
 ```java
-@TemplateVariables(name = "flow.approval-notice", label = "Approval notice")
+@TemplateVariableSet(name = "flow.approval-notice", label = "Approval notice")
 public record ApprovalNoticeVariables(
         @Schema(title = "Record code", example = "LR-0012") String recordCode,
         @Schema(title = "Link", description = "Opens the request") String link) {}
 ```
 
 - Declarations are collected into memory at startup; nothing is stored. Two classes declaring one name, a class that is not a record, or a component of an unsupported type stop the application, naming the class.
-- The editor reads a set's fields from `GET /TemplateVariables/list` and `GET /TemplateVariables/get?name=`; they are shaped like a model's fields, so the same field picker is used.
+- The editor reads a set's fields from `GET /TemplateVariableSet/list` and `GET /TemplateVariableSet/get?name=`; they are shaped like a model's fields, so the same field picker is used.
 
 **On save**, a template that names a set may only use what the set has; anything else is refused, listing what is wrong:
 

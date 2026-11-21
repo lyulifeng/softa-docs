@@ -187,6 +187,15 @@ There is no task node that calls a Spring bean: what a flow does to the business
 
 There is no send-SMS node: SMS belongs to the platform, and a flow does not send it. The former `SendSms` node is gone. A stored design that still holds one cannot be read after the upgrade, so delete the node from the flow and publish again before upgrading.
 
+### Template variables of the send-email node
+
+When the send-email node (`SendEmail`) names a template (`templateCode`), the template's variables come one of two ways:
+
+- Template Variables (`templateVariables`) mapped: the mapping; each entry may use `{{ }}`.
+- Not mapped: every flow variable, handed to the template as it is.
+
+Either way they reach the template as a map, so a send does not check them against a set the template names; see [Email · Where a template's variables come from](../message/email#where-a-templates-variables-come-from).
+
 ### Generated files and email attachments
 
 The result of a Generate File node (`GenerateFile`) is `fileId`, `fileName`, `fileType` and `size`, with no file address. To send the generated file, put its fileId in the `attachments` of a Send Email node (`SendEmail`): a list of fileIds, each of which may be a `{{ }}` template. With the Generate File node's Output variable (`outputVariable`) set to `generated`, say:

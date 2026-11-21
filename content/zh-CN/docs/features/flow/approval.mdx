@@ -509,7 +509,7 @@
 
 - 默认的 `ApprovalNotificationService` 是 `MessageApprovalNotificationService`，经 message-starter 发站内信和邮件。由一个映射（`ApprovalNotices`）决定通知谁、通知什么，每个事件只算一次；两个通道各自写入、各在自己的事务里，一个写不进去只记日志，另一个照发。
 - 站内信经由 message-starter 发送 Workflow 类型的站内消息（`sourceModel` = `FlowInstance`，`sourceId` = 其实例 id；客户端打开实例并从那里继续）。超过收件箱 200 字符上限的标题会被截断；文本翻译为租户的默认语言。
-- 邮件经由 message-starter 发往 `UserAccount.email`。模板变量为 `subject`（实例标题，否则为流程名）、`content`（意见或理由，如有）、`flowName`、`recordCode` 和 `link`——审批页面，即 `system.site-url` + `/home/approvals/{instanceId}`，未配置站点 URL 时为空。
+- 邮件经由 message-starter 发往 `UserAccount.email`。模板变量为 `subject`（实例标题，否则为流程名）、`summary`（审批列表里标题下面那一行摘要，单据没有摘要时为空）、`content`（意见或理由，如有）、`flowName`、`recordCode` 和 `link`——审批页面，即 `system.site-url` + `/home/approvals/{instanceId}`，未配置站点 URL 时为空。
 - `InboxReadMarker`：审批人采取行动后，其关于该实例的未读站内消息（待审批或抄送本身、催办、超时提醒）在动作提交后标为已读；催办、评论或发出抄送不算采取行动。
 - 打开审批也算看过：不论从哪里进来（「我的待办」、铃铛、邮件或链接），前端在审批的页面打开时调用 `POST /InboxNotification/myMarkAsReadBySource`（`sourceModel=FlowInstance`、`sourceId` 为实例 id），把用户关于该实例的未读站内消息标为已读，并对发给他的每份未读抄送记一次阅读（`/flow/instances/cc/read`）。审批的页面指审批中心的单据页、实例页，以及在业务页上审批的单据的业务页（如薪资批次页）。在业务页上，实例取自用户自己在这张单据上的任务：轮到他审批的任务，或未读的抄送。待审批的任务不因打开而改变，仍等他处理。
 - 应用提供的 `ApprovalNotificationService` bean 会整体替换默认实现，连同两个通道一起；若要增加通道——短信、IM——请声明自己的 bean，在其中先调用默认的 `MessageApprovalNotificationService`，再发自己的通道。

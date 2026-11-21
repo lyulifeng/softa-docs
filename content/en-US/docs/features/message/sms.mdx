@@ -57,6 +57,10 @@ SMS templates exist once, on the platform, each `code` unique across the table; 
 
 </Lead>
 
+A template may name, in `variableSetName`, the set of variables it is written against; the rules are those of a mail template's [variable source](./email#where-a-templates-variables-come-from): on save, a name the set does not have is refused; on send, an object (`SendSmsDTO.ofTemplate(phoneNumber, code, variables, scope)`) of another set throws a `BusinessException`. Empty means unchecked. An SMS template has no loops or conditions.
+
+One difference from mail: a component with no value is **not sent**, rather than sent empty. A provider that fills its own registered template is handed the variables themselves, some by position, and would refuse one more than its template takes.
+
 ```bash
 POST /SmsTemplate/createOne
 {

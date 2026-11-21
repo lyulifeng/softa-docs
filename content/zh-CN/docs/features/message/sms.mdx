@@ -57,7 +57,7 @@ List<Long> ids = messageService.sendSmsBatch(List.of(
 
 </Lead>
 
-模板可以用 `variablesName` 写明它是按哪一组变量写的，规则和邮件模板的[变量来源](./email#变量来源)相同：保存时内容里出现这组变量没有的名字会被拒绝；发送时传对象（`SendSmsDTO.ofTemplate(phoneNumber, code, variables, scope)`），对象不是这一组就抛出 `BusinessException`。不填就不校验。短信模板没有模型来源，也没有循环和判断。
+模板可以用 `variablesName` 写明它是按哪一组变量写的，规则和邮件模板的[变量来源](./email#变量来源)相同：保存时内容里出现这组变量没有的名字会被拒绝；发送时传对象（`SendSmsDTO.ofTemplate(phoneNumber, code, variables, scope)`），对象不是这一组就抛出 `BusinessException`。不填就不校验。短信模板没有循环和判断。
 
 和邮件有一点不同：对象里没有值的分量**不发送**，而不是按空串发送。有的提供商用自己那边登记的模板，拿到的是变量本身，其中有的按位置取，多出一个空的会被拒绝。
 

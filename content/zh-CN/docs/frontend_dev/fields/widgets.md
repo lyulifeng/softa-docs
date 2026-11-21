@@ -109,26 +109,24 @@
 
 基于 Tiptap 的模板编辑器，用于由后端填值并渲染的内容：邮件模板正文（`MailTemplate.bodyHtml`、`PlatformMailTemplate.bodyHtml`）和文档模板（`DocumentTemplate.htmlTemplate`，渲染成 PDF）。工具栏和 `RichText` 相同，在此之上可以插入模板专属的块。
 
-**来源**：能插入什么，取决于模板的来源，有两种：
+**能插入的字段**随模板种类而定：
 
-| 来源 | widget prop | 提供 | 从哪里读 |
-| --- | --- | --- | --- |
-| 模型 | `modelName` | 模型的字段；多对一关联可以展开到关联记录的字段（`departmentId.name`）；对多关联用循环表格 | 模型元数据 |
-| 声明的一组变量 | `variablesName` | 后端在代码里声明的变量（`@TemplateVariables`），带标签、说明和示例值；嵌套的一组可以展开（`buyer.fullName`）；记录的列表用循环表格 | `GET /TemplateVariables/get?name=` |
+- 文档模板：模板所属模型（`modelName`）的字段。多对一关联可以展开到关联记录的字段（`departmentId.name`），对多关联用循环表格。
+- 邮件模板：模板记录上 `variablesName` 写明的那一组变量，即后端在代码里声明的变量（`@TemplateVariables`），经 `GET /TemplateVariables/get?name=` 读到，带标签、说明和示例值。嵌套的一组可以展开（`buyer.fullName`），记录的列表用循环表格。没写变量组时编辑器仍可当富文本编辑器用，「插入字段」提示没有可插入的内容。
 
-文档模板总是有模型。邮件模板在自己的记录上最多写明其中一种，也可以都不写；都不写时编辑器仍可当富文本编辑器用，「插入字段」提示没有可插入的内容。主题、邮件的纯文本正文、短信内容这类纯文本输入框上方的「Insert variable」按钮用的是同一份字段清单，插入的是纯文本 `{{ 名字 }}`；输入框按条件隐藏时（纯文本正文在不发它的正文模式下），按钮跟着隐藏。
+主题、邮件的纯文本正文、短信内容这类纯文本输入框上方的「Insert variable」按钮用的是同一份字段清单，插入的是纯文本 `{{ 名字 }}`；输入框按条件隐藏时（纯文本正文在不发它的正文模式下），按钮跟着隐藏。
 
 存储格式：带 `data-tpl-*` 属性的 HTML，用于模板专属节点。编辑器通过自定义 `parseHTML` / `renderHTML` 规则在存储的 HTML 与 Tiptap JSON 之间自动往返转换。
 
 功能：
 
-- **字段占位符** — 将来源里的字段以行内芯片形式插入。HTML 输出：`<span data-tpl-field="fieldPath" data-tpl-label="label">{{fieldPath}}</span>`。服务端只读里面的 `{{fieldPath}}`；芯片上显示的是插入时存下来的标签。「插入字段」选择器（含关联一层路径与循环表列选项）会排除 `@/types/BaseModel` 中的 `reversedFields`（如 `id`、`tenantId`、`version`、审计时间戳与用户引用等），与其他将这些视为系统托管字段的流程一致。
+- **字段占位符** — 将可插入的字段以行内芯片形式插入。HTML 输出：`<span data-tpl-field="fieldPath" data-tpl-label="label">{{fieldPath}}</span>`。服务端只读里面的 `{{fieldPath}}`；芯片上显示的是插入时存下来的标签。「插入字段」选择器（含关联一层路径与循环表列选项）会排除 `@/types/BaseModel` 中的 `reversedFields`（如 `id`、`tenantId`、`version`、审计时间戳与用户引用等），与其他将这些视为系统托管字段的流程一致。
 - **自定义变量** — 将一次性变量以行内芯片形式插入。HTML 输出：`<span data-tpl-variable="employee_name" data-tpl-label="Employee Name" data-tpl-value-type="String" data-tpl-required="true">{{employee_name}}</span>`
 - **签名槽** — 插入固定尺寸、可内联于文字流中的签名占位。同一行可插入多个签名槽，并排显示，槽之间可留打字间距或文字。默认工具栏预设对应签署方槽位（如 `Sender` 与 `Receiver`）。HTML 输出：`<span data-tpl-signature="Sender" data-tpl-label="Sender Signature"></span>`
 - **关联字段展开** — 将 `ManyToOne` / `OneToOne` 关联展开一层，插入嵌套路径（如 `department.name`）
-- **循环表格** — 将来源里的列表（模型的 `OneToMany` / `ManyToMany` 关联、声明的记录列表）以可选列的表格插入，表格对列表的每一项重复一行。HTML 输出：`<table data-tpl-loop="listField" data-tpl-model="RelatedModel">`，表头是 `<th data-tpl-field="col">`，正文一行 `<td>{{col}}</td>`；声明的列表没有模型，不写 `data-tpl-model`。点击已插入的循环表格会重新打开选列对话框，已选的列保持勾选，确认后原地更新
+- **循环表格** — 将列表（文档模板里模型的 `OneToMany` / `ManyToMany` 关联，邮件模板里声明的记录列表）以可选列的表格插入，表格对列表的每一项重复一行。HTML 输出：`<table data-tpl-loop="listField" data-tpl-model="RelatedModel">`，表头是 `<th data-tpl-field="col">`，正文一行 `<td>{{col}}</td>`；声明的列表没有模型，不写 `data-tpl-model`。点击已插入的循环表格会重新打开选列对话框，已选的列保持勾选，确认后原地更新
 - **条件区块**（`enableInsertCondition`）— 一个虚线框，框里的内容只在某个字段上的条件成立时才出现，标题是条件的文字（如 “Show if Amount > 1000”）。「Insert Condition」把选中的块框进去，没有选中时在光标处插入空框；点击标题重新打开对话框改条件，框里的内容不受影响。HTML 输出：`<div data-tpl-if="amount" data-tpl-op="gt" data-tpl-value="1000" data-tpl-value-type="number" data-tpl-label="Amount > 1000">…</div>`。条件区块里不能再放条件区块
-- **把纯占位符显示成字段块**（`recognizePlaceholders`）— 经种子或接口写入的正文里，取值是裸的 `{{ name }}`。打开这样的模板且来源已知时，来源里有的 `{{ name }}`（一个字段，或每一段都能解析的点号路径）显示成字段块，标签取自来源，编辑态和只读态都一样。来源不认识的名字、带过滤器或运算的写法、HTML 属性里的（`href="{{ link }}"`）、循环表格里的保持原样。只打开不编辑不会让表单变成已修改
+- **把纯占位符显示成字段块**（`recognizePlaceholders`）— 经种子或接口写入的正文里，取值是裸的 `{{ name }}`。打开这样的模板且字段清单已知时，清单里有的 `{{ name }}`（一个字段，或每一段都能解析的点号路径）显示成字段块，标签取自清单，编辑态和只读态都一样。清单里没有的名字、带过滤器或运算的写法、HTML 属性里的（`href="{{ link }}"`）、循环表格里的保持原样。只打开不编辑不会让表单变成已修改
 - **工具栏动作** — 「插入字段」「插入条件」「插入变量」「插入签名」可按 widget props 分别配置
 - **两级懒加载** — 与 `RichText` 相同：只读仅渲染已存储的 HTML（经 `SafeHtml` 净化，`data-tpl-*` 属性保留），字段块显示成标签，循环表格和条件区块显示成和编辑态一样的框；编辑时再懒加载完整编辑器
 - **已保存记录预览** — `DocumentTemplate` 富文本记录可在新标签打开 `/admin/document-template/[id]/preview`，左侧大纲可在变量与签名槽之间跳转，`Preview As` 可在 `All`、`Sender`、`Receiver` 间切换，点击文档预览中的高亮占位可填写自定义变量并在本地采集签名
@@ -149,7 +147,7 @@
 />
 ```
 
-邮件模板正文：来源是记录上写明的那一种，可插入的块是字段、循环表格和条件区块，种子正文里的纯占位符显示成字段块。自定义变量和签名槽属于文档模板，这里关闭。
+邮件模板正文：字段来自记录上写明的变量组，可插入的块是字段、循环表格和条件区块，种子正文里的纯占位符显示成字段块。自定义变量和签名槽属于文档模板，这里关闭。
 
 ```tsx
 <Field
@@ -157,7 +155,6 @@
   widgetType="TemplateEditor"
   widgetProps={{
     variablesName: "{{ variablesName }}",
-    modelName: "{{ modelName }}",
     enableInsertVariable: false,
     enableInsertSignature: false,
     enableInsertCondition: true,
@@ -175,9 +172,9 @@
 | `enableInsertField`     | `boolean`          | `true`  | 工具栏是否显示 `Insert Field`。                                                                                                         |
 | `enableInsertVariable`  | `boolean`          | `true`  | 工具栏是否显示 `Insert Variable`。                                                                                                     |
 | `enableInsertSignature` | `boolean`          | `true`  | 工具栏是否显示 `Insert Signature`。                                                                                                    |
-| `variablesName`         | `string`           | -       | 用声明的一组变量代替模型字段。静态名字，或 `"{{ variablesName }}"` 这样的字段引用。声明了这个 prop，来源就严格按两个 prop 解析：写了变量组用变量组，否则用模型，都没有就没有来源。 |
+| `variablesName`         | `string`           | -       | 可供插入字段的声明变量组，用于邮件模板，代替模型字段。静态名字，或 `"{{ variablesName }}"` 这样的字段引用。声明了这个 prop，就不再回退到字段自身的 `metaField.modelName`：值为空时没有可插入的字段。 |
 | `enableInsertCondition` | `boolean`          | `false` | 工具栏是否显示 `Insert Condition`。关闭时编辑器里没有条件区块这种节点，存储的 HTML 里若有，按它的内容读入。只在服务端会翻译这种块的地方打开（邮件正文）。 |
-| `recognizePlaceholders` | `boolean`          | `false` | 打开模板时，是否把来源认识的纯 `{{ name }}` 显示成字段块。                                                                              |
+| `recognizePlaceholders` | `boolean`          | `false` | 打开模板时，是否把字段清单里有的纯 `{{ name }}` 显示成字段块。                                                                        |
 
 若未提供 `modelName`，且没有声明 `variablesName`，会回退到字段自身的 `metaField.modelName`。
 
@@ -187,10 +184,10 @@
 | --- | --- | --- |
 | `Integer` / `Long` / `Double` / `BigDecimal` | 等于、不等于、大于、大于等于、小于、小于等于、为空、不为空 | 数字（`data-tpl-value-type="number"`） |
 | `Boolean` | 为真、为假、等于、不等于、为空、不为空 | True / False（`"boolean"`） |
-| `String` / `Text` / `Option` | 等于、不等于、为空、不为空 | 文本（`"string"`）；模型的选项字段从选项集里选，存的是选项编码 |
-| 其它：日期时间、关联、列表、嵌套的一组 | 为空、不为空 | 无 |
+| `String` / `Text` / `Option` | 等于、不等于、为空、不为空 | 文本（`"string"`）；枚举（`Option`）存的是枚举编码 |
+| 其它：日期时间、列表 | 为空、不为空 | 无 |
 
-`data-tpl-value` 和 `data-tpl-value-type` 只在需要值的比较上存储。字段可以选来源自己的字段、关联或嵌套组下面的字段，或一个列表（问它有没有行）；关联本身不可选。
+`data-tpl-value` 和 `data-tpl-value-type` 只在需要值的比较上存储。字段可以选变量组里的字段、嵌套组下面的字段，或一个列表（问它有没有行）；嵌套组本身不可选。
 
 自定义变量 schema：
 

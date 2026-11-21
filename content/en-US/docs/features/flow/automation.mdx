@@ -189,15 +189,12 @@ There is no send-SMS node: SMS belongs to the platform, and a flow does not send
 
 ### Template variables of the send-email node
 
-When the send-email node (`SendEmail`) names a template (`templateCode`), the template's variables come from, in this order:
+When the send-email node (`SendEmail`) names a template (`templateCode`), the template's variables come one of two ways:
 
-| On the node | The template | Variables |
-|---|---|---|
-| Template Variables mapped | any | the mapping; each entry may use `{{ }}` |
-| not mapped | bound to a model (the template's `modelName`) | the flow's own record: the fields the template uses are read from it at send |
-| not mapped | bound to nothing | every flow variable |
+- Template Variables (`templateVariables`) mapped: the mapping; each entry may use `{{ }}`.
+- Not mapped: every flow variable, handed to the template as it is.
 
-The second case needs the flow to run on a record of the model the template is bound to. With another model, or a flow that has no record (an automation flow), the node fails and says why; it does not fill the template from a record of another model that happens to share the id. How a template is bound to a model and which fields it may use: [Email · Where a template's variables come from](../message/email#where-a-templates-variables-come-from).
+Either way they reach the template as a map, so a send does not check them against a set the template names; see [Email · Where a template's variables come from](../message/email#where-a-templates-variables-come-from).
 
 ### Generated files and email attachments
 

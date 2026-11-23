@@ -27,7 +27,7 @@ File Starter 支持三种导出模式：
 | 字段 | 类型 | 默认值 | 说明 |
 | --- | --- | --- | --- |
 | `fileName` | String | `null` | 导出文件名 |
-| `sheetName` | String | `null` | 工作表名 |
+| `sheetName` | String | `null` | 工作表名。文件模板模式下填模板里同名的工作表；未设置或模板里没有这个名字时，填模板的第一个工作表 |
 | `modelName` | String | `null` | 要导出的模型名 |
 | `customFileTemplate` | Boolean | `null` | 为 true 时使用文件模板导出模式；否则使用字段模板模式 |
 | `fileId` | Long | `null` | 模板文件 id（`customFileTemplate = true` 时必填） |
